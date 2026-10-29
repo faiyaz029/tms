@@ -8,9 +8,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app import db as database
 from app.db import Base, get_db
 from app.main import app
-from app.models import ExpenseCategory, PaymentMethod, Role, User
+from app.models import BusinessSetting, ExpenseCategory, PaymentMethod, Role, User
 from app.security import hash_password
 
 
@@ -57,6 +58,7 @@ def db(postgres_test_engine):
         PaymentMethod(code="other", label="Other", is_active=True, requires_reference=False),
         PaymentMethod(code="online_simulated", label="Online (SIMULATED)", is_active=True, requires_reference=False),
     ])
+    s.add(BusinessSetting(key="email_demo_failure_pending", value="true"))
     s.add_all([
         ExpenseCategory(code="electricity", label="Electricity", is_active=True),
         ExpenseCategory(code="cleaning", label="Cleaning", is_active=True),
@@ -73,9 +75,24 @@ def db(postgres_test_engine):
 
 
 @pytest.fixture()
-def client(db):
+def client(db, monkeypatch):
     from app.routers import auth
+    from app.services import email as email_service
+    from app.email import OutboxEmailBackend
+
     auth._fails.clear()
+    monkeypatch.setattr(
+        email_service,
+        "get_email_backend",
+        lambda: OutboxEmailBackend(),
+    )
+    monkeypatch.setattr(database.settings, "email_backend", "outbox")
+    monkeypatch.setattr(database.settings, "email_simulate_failure_once", True)
+    monkeypatch.setattr(
+        database,
+        "SessionLocal",
+        sessionmaker(bind=db.get_bind(), autoflush=False, expire_on_commit=False),
+    )
     app.dependency_overrides[get_db] = lambda: db
     with TestClient(app) as c:
         yield c

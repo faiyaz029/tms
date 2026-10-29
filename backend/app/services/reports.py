@@ -16,6 +16,7 @@ from ..models import (
     ReportReopening, ReportSnapshot, ReportingPeriod, ReportingPeriodStatus,
     Shareholder, Shareholding, User,
 )
+from .email import create_statements
 
 BUSINESS_TZ = ZoneInfo(settings.business_timezone)
 UTC = timezone.utc
@@ -900,6 +901,7 @@ def approve_report(
     period.status = ReportingPeriodStatus.approved
     db.add(snapshot)
     db.flush()
+    create_statements(db, snapshot)
     record(
         db, actor, "report.approve", "report_snapshot", snapshot.id,
         after={

@@ -21,7 +21,7 @@ export default function Layout() {
         </nav>
       </aside>
       <div className="flex-1 pb-20 md:pb-0">
-        <header className="flex items-center gap-3 bg-pitch-900 px-4 py-3 text-white md:bg-transparent md:text-inherit">
+        <header className="no-print flex items-center gap-3 bg-pitch-900 px-4 py-3 text-white md:bg-transparent md:text-inherit">
           <b className="flex-1 md:hidden">Turf &amp; Pool</b>
           <span className="hidden flex-1 text-sm text-slate-500 md:block dark:text-slate-400">Signed in as {user.full_name} ({user.role})</span>
           <button className="rounded-lg border border-white/40 px-3 py-2 text-sm md:border-slate-300" onClick={logout}>Sign out</button>

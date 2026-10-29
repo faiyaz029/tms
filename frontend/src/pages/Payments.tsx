@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { api } from "../api";
+import { api, downloadCsv } from "../api";
 import { useAuth } from "../auth";
 
 interface PaymentMethod {
@@ -105,6 +105,7 @@ export default function Payments() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [exporting, setExporting] = useState(false);
   const selectedMethod = methods.find((item) => item.code === method);
 
   const loadPayments = useCallback(async () => {
@@ -239,6 +240,21 @@ export default function Payments() {
     }
   };
 
+  const exportPayments = async () => {
+    setExporting(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      const query = params.toString();
+      await downloadCsv(`/exports/payments.csv${query ? `?${query}` : ""}`, "payments.csv");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const requiresReference = selectedMethod?.requires_reference ?? false;
   const canRecord = can("payment.record");
   const canVerify = can("payment.verify");
@@ -345,6 +361,9 @@ export default function Payments() {
               <option value="failed">Failed</option>
             </select>
           </label>
+          <button type="button" className="btn-o" disabled={exporting} onClick={() => void exportPayments()}>
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
         </div>
         {loading ? <p role="status">Loading payments…</p> : payments?.items.length ? (
           <div className="space-y-3">

@@ -36,3 +36,23 @@ export async function api<T>(
   }
   return data as T;
 }
+
+export async function downloadCsv(path: string, filename: string): Promise<void> {
+  const res = await fetch(`/api${path}`, { credentials: "include" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const detail = data?.detail;
+    const message = Array.isArray(detail)
+      ? detail.map((item: { msg: string }) => item.msg.replace("Value error, ", "")).join(". ")
+      : typeof detail === "string" ? detail : "Could not download this export";
+    throw new ApiError(res.status, message);
+  }
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}

@@ -20,6 +20,7 @@ from ..services.expenses import (
     approve_expense, closing_output, closing_totals, correct_expense,
     create_expense, expense_output, reject_expense, review_closing, submit_closing,
 )
+from ..services.exports import closing_query, expense_query
 
 router = APIRouter(tags=["expenses and daily closing"])
 
@@ -120,29 +121,9 @@ def list_expenses(
     _: User = Depends(require_permission("expense.enter")),
     db: Session = Depends(get_db),
 ):
-    query = select(Expense)
-    if date_from and date_to and date_from > date_to:
-        raise HTTPException(422, "date_from must be on or before date_to")
-    if date_from:
-        query = query.where(Expense.expense_date >= date_from)
-    if date_to:
-        query = query.where(Expense.expense_date <= date_to)
-    if ref:
-        query = query.where(Expense.ref.ilike(f"%{ref.strip()}%"))
-    if amount is not None:
-        query = query.where(Expense.amount == amount)
-    if category:
-        query = query.where(Expense.category == category.strip().lower())
-    if vendor:
-        query = query.where(Expense.vendor.ilike(f"%{vendor.strip()}%"))
-    if method:
-        query = query.where(Expense.method == method.strip().lower())
-    if trx_id:
-        query = query.where(Expense.trx_id.ilike(f"%{trx_id.strip()}%"))
-    if memo_no:
-        query = query.where(Expense.memo_no.ilike(f"%{memo_no.strip()}%"))
-    if status:
-        query = query.where(Expense.status == status)
+    query = expense_query(
+        ref, date_from, date_to, amount, category, vendor, method, trx_id, memo_no, status,
+    )
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     expenses = db.scalars(
         query.order_by(Expense.created_at.desc())
@@ -254,9 +235,7 @@ def list_closings(
     _: User = Depends(require_permission("closing.view")),
     db: Session = Depends(get_db),
 ):
-    query = select(DailyClosing)
-    if business_date:
-        query = query.where(DailyClosing.business_date == business_date)
+    query = closing_query(business_date)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     closings = db.scalars(
         query.order_by(DailyClosing.business_date.desc(), DailyClosing.version.desc())

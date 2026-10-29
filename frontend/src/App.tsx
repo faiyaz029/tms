@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth";
 import { NAV } from "./nav";
 import Layout from "./components/Layout";
-import { CompleteProfile, Login, Register } from "./pages/AuthPages";
+import { CompleteProfile, ForgotPassword, Login, Register, ResetPassword } from "./pages/AuthPages";
 import Placeholder from "./pages/Placeholder";
 import Users from "./pages/Users";
 import { Book, MyBookings, StaffBookings, Timetable } from "./pages/BookingPages";
@@ -11,6 +11,7 @@ import Expenses from "./pages/Expenses";
 import Closings from "./pages/Closings";
 import Reports from "./pages/Reports";
 import { ShareholderOverview, ShareholderStatement } from "./pages/ShareholderPages";
+import EmailDeliveries from "./pages/EmailDeliveries";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -28,11 +29,13 @@ function Home() {
 export default function App() {
   const { user } = useAuth();
   const paths = [...new Set(Object.values(NAV).flat().map((i) => i.path))]
-    .filter((p) => !["/users", "/book", "/my-bookings", "/new-booking", "/timetable", "/payments", "/expenses", "/closings", "/reports", "/overview", "/statement"].includes(p));
+    .filter((p) => !["/users", "/book", "/my-bookings", "/new-booking", "/timetable", "/payments", "/expenses", "/closings", "/reports", "/overview", "/statement", "/emails"].includes(p));
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/complete-profile" element={user ? <CompleteProfile /> : <Navigate to="/login" replace />} />
       <Route element={<Protected><Layout /></Protected>}>
         <Route index element={<Home />} />
@@ -55,6 +58,8 @@ export default function App() {
           ? <ShareholderOverview /> : <Navigate to="/" replace />} />
         <Route path="/statement" element={user?.role === "shareholder"
           ? <ShareholderStatement /> : <Navigate to="/" replace />} />
+        <Route path="/emails" element={user?.permissions.includes("email.manage")
+          ? <EmailDeliveries /> : <Navigate to="/" replace />} />
         <Route path="/users" element={user?.role === "owner" ? <Users /> : <Navigate to="/" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

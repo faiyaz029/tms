@@ -9,3 +9,10 @@
   .card { @apply rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800; }
 }
 body { @apply bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100; padding-top: env(safe-area-inset-top, 0px); }
+
+@media print {
+  body { background: white !important; color: black !important; padding-top: 0; }
+  #root aside, #root nav, .no-print { display: none !important; }
+  #root main { max-width: none !important; padding: 0 !important; }
+  .card { border-color: transparent !important; box-shadow: none !important; }
+}

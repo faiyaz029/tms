@@ -29,6 +29,15 @@ class LoginIn(BaseModel):
     password: str
 
 
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=20, max_length=128)
+    password: str = Field(min_length=8, max_length=72)
+
+
 class GoogleIn(BaseModel):
     credential: str
 

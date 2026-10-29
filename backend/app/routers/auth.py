@@ -1,7 +1,10 @@
+import hashlib
+import hmac
 import secrets
 import time
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,9 +13,12 @@ from ..audit import record
 from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user, user_out
-from ..models import Role, User
-from ..schemas import GoogleIn, LoginIn, ProfileIn, RegisterIn, UserOut
+from ..models import PasswordResetToken, Role, User, utcnow
+from ..schemas import (
+    ForgotPasswordIn, GoogleIn, LoginIn, ProfileIn, RegisterIn, ResetPasswordIn, UserOut,
+)
 from ..security import create_token, hash_password, verify_password
+from ..services.email import issue_password_reset, rate_limit_reset_request
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -61,6 +67,72 @@ def login(body: LoginIn, request: Request, resp: Response, db: Session = Depends
     _fails.pop(key, None)
     _set_cookies(resp, user)
     return user_out(user)
+
+
+@router.post("/forgot-password", status_code=202)
+def forgot_password(
+    body: ForgotPasswordIn,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    email = str(body.email).strip().lower()
+    client_host = request.client.host if request.client else "unknown"
+    secret = settings.secret_key.encode()
+    account_key = hmac.new(
+        secret, f"account:{email}:{client_host}".encode(), hashlib.sha256,
+    ).hexdigest()
+    ip_key = hmac.new(
+        secret, f"ip:{client_host}".encode(), hashlib.sha256,
+    ).hexdigest()
+    now = datetime.now(timezone.utc)
+    account_allowed = rate_limit_reset_request(db, account_key, now)
+    ip_allowed = rate_limit_reset_request(db, ip_key, now)
+    db.commit()
+    if account_allowed and ip_allowed:
+        background_tasks.add_task(issue_password_reset, email)
+    return {"message": "If an account exists for that email, a reset link has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(
+    body: ResetPasswordIn,
+    db: Session = Depends(get_db),
+):
+    token_hash = hashlib.sha256(body.token.encode()).hexdigest()
+    reset = db.scalar(
+        select(PasswordResetToken)
+        .where(PasswordResetToken.token_hash == token_hash)
+        .with_for_update()
+    )
+    now = utcnow()
+    expires_at = reset.expires_at if reset else None
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if not reset or reset.used_at or not expires_at or expires_at <= now:
+        raise HTTPException(400, "This reset link is invalid or expired")
+    user = db.get(User, reset.user_id)
+    if not user or not user.is_active:
+        raise HTTPException(400, "This reset link is invalid or expired")
+
+    reset.used_at = now
+    for other in db.scalars(
+        select(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.id != reset.id,
+        )
+        .with_for_update()
+    ):
+        other.used_at = now
+    user.password_hash = hash_password(body.password)
+    record(
+        db, user, "user.password_reset", "user", user.id,
+        after={"password_reset": True},
+    )
+    db.commit()
+    return {"message": "Password updated. Sign in with your new password."}
 
 
 @router.post("/google", response_model=UserOut)

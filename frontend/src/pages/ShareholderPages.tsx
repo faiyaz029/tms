@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 
 interface Shareholding {
@@ -34,14 +34,40 @@ interface ApprovedReport {
   my_allocation: { shares: number; amount: string } | null;
 }
 
-interface ApprovedExpense {
-  ref: string;
-  payment_date: string;
-  category: string;
-  description: string;
-  amount: string;
-  method: string;
-  status: string;
+interface StatementContent {
+  business_name: string;
+  period: string;
+  approved_at: string;
+  report_reference: string;
+  calculation_basis: string;
+  collections: string;
+  approved_expenses: string;
+  final_result: string;
+  distribution_pool: string;
+  total_eligible_shares: number;
+  per_share: string | null;
+  shareholder_name: string;
+  shareholder_shares: number;
+  calculated_allocation: string;
+  retained_amount: string;
+  payout_status: "calculated" | "declared" | "paid";
+  payout_note: string;
+  approved_expense_items: {
+    ref: string;
+    payment_date: string;
+    category: string;
+    description: string;
+    amount: string;
+    method: string;
+  }[];
+  exception_reason: string | null;
+}
+
+interface StatementRecord {
+  id: number;
+  snapshot_id: number;
+  generated_at: string;
+  content: StatementContent;
 }
 
 const money = (amount: string | null | undefined) => amount === null || amount === undefined
@@ -53,8 +79,6 @@ const dateTimeLabel = (value: string) => new Intl.DateTimeFormat("en-BD", {
 const periodLabel = (year: number, month: number) => new Intl.DateTimeFormat("en-BD", {
   timeZone: "Asia/Dhaka", month: "long", year: "numeric",
 }).format(new Date(Date.UTC(year, month - 1, 1)));
-const reportKey = (report: ApprovedReport) => `${report.year}-${String(report.month).padStart(2, "0")}`;
-
 function ErrorNotice({ message }: { message: string }) {
   return message ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">{message}</p> : null;
 }
@@ -119,82 +143,84 @@ export function ShareholderOverview() {
 }
 
 export function ShareholderStatement() {
-  const { holding, reports, loading, error } = useShareholderData();
-  const [selectedPeriod, setSelectedPeriod] = useState("");
-  const [expenses, setExpenses] = useState<ApprovedExpense[]>([]);
-  const [expenseError, setExpenseError] = useState("");
-  const selected = useMemo(
-    () => reports.find((report) => reportKey(report) === selectedPeriod) ?? reports[0],
-    [reports, selectedPeriod],
-  );
+  const [statements, setStatements] = useState<StatementRecord[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!selected) {
-      setExpenses([]);
-      return;
-    }
     let active = true;
-    api<{ items: ApprovedExpense[] }>(`/reports/approved/${selected.year}/${selected.month}/expenses`)
+    api<{ items: StatementRecord[] }>("/statements/mine")
       .then((result) => {
-        if (active) {
-          setExpenses(result.items);
-          setExpenseError("");
-        }
+        if (active) setStatements(result.items);
       })
-      .catch((err) => {
-        if (active) setExpenseError((err as Error).message);
-      });
+      .catch((err) => { if (active) setError((err as Error).message); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [selected]);
+  }, []);
+
+  const selected = statements.find((statement) => statement.id === selectedId) ?? statements[0];
+  const content = selected?.content;
 
   return (
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-bold">My shareholder statement</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300">Approved snapshot only · cash-receipt basis · figures are management information, not a promise of dividends.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300">Your immutable approved statement · management information, not a promise of dividends.</p>
       </header>
-      <ErrorNotice message={error || expenseError} />
-      {loading ? <p role="status">Loading statement…</p> : !reports.length ? (
+      <ErrorNotice message={error} />
+      {loading ? <p role="status">Loading statement…</p> : !statements.length ? (
         <section className="card"><p>No approved statement is available yet.</p></section>
       ) : (
         <>
-          <label className="block max-w-sm space-y-1">
-            <span className="text-sm font-semibold">Approved period</span>
-            <select className="field" value={selected ? reportKey(selected) : ""} onChange={(event) => setSelectedPeriod(event.target.value)}>
-              {reports.map((report) => <option key={report.id} value={reportKey(report)}>{periodLabel(report.year, report.month)} · version {report.version}</option>)}
-            </select>
-          </label>
-          {selected && (
+          <div className="no-print flex flex-wrap items-end gap-3">
+            <label className="min-w-48 flex-1 space-y-1">
+              <span className="text-sm font-semibold">Approved statement</span>
+              <select className="field" value={selected?.id ?? ""} onChange={(event) => setSelectedId(Number(event.target.value))}>
+                {statements.map((statement) => (
+                  <option key={statement.id} value={statement.id}>
+                    {statement.content.period} · {statement.content.report_reference}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="btn-o" onClick={() => window.print()}>Print statement</button>
+          </div>
+          {content && (
             <>
               <section className="card space-y-3">
-                <h2 className="text-lg font-bold">{periodLabel(selected.year, selected.month)} · {selected.status === "approved" ? "Approved / Final" : "Previously approved · reopened"}</h2>
-                <p className="text-sm">Approved {dateTimeLabel(selected.created_at)} by {selected.approver_name} · version {selected.version}</p>
-                <p className="text-sm">{selected.calculation_basis}</p>
+                <h2 className="text-xl font-bold">{content.business_name}</h2>
+                <p className="font-semibold">{content.report_reference} · {content.period}</p>
+                <p className="text-sm">Approved {dateTimeLabel(content.approved_at)} · statement generated {dateTimeLabel(selected.generated_at)}</p>
+                <p className="text-sm">{content.calculation_basis}</p>
                 <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <div className="rounded border p-3"><dt className="text-sm">Verified collections</dt><dd className="font-semibold">{money(selected.totals.verified_collections.amount)}</dd></div>
-                  <div className="rounded border p-3"><dt className="text-sm">Approved expenses</dt><dd className="font-semibold">{money(selected.totals.approved_expenses.amount)}</dd></div>
-                  <div className="rounded border p-3"><dt className="text-sm">Operating result</dt><dd className="font-semibold">{money(selected.totals.operating_result)}</dd></div>
-                  <div className="rounded border p-3"><dt className="text-sm">Distribution pool</dt><dd className="font-semibold">{money(selected.pool)}</dd></div>
-                  <div className="rounded border p-3"><dt className="text-sm">Amount per eligible share</dt><dd className="font-semibold">{money(selected.totals.per_share)}</dd></div>
-                  <div className="rounded border p-3"><dt className="text-sm">Rounding / unallocated remainder</dt><dd className="font-semibold">{money(selected.remainder)}</dd></div>
+                  <div className="rounded border p-3"><dt className="text-sm">Verified collections</dt><dd className="font-semibold">{money(content.collections)}</dd></div>
+                  <div className="rounded border p-3"><dt className="text-sm">Approved expenses</dt><dd className="font-semibold">{money(content.approved_expenses)}</dd></div>
+                  <div className="rounded border p-3"><dt className="text-sm">Final result</dt><dd className="font-semibold">{money(content.final_result)}</dd></div>
+                  <div className="rounded border p-3"><dt className="text-sm">Distribution pool</dt><dd className="font-semibold">{money(content.distribution_pool)}</dd></div>
+                  <div className="rounded border p-3"><dt className="text-sm">Total eligible shares</dt><dd className="font-semibold">{content.total_eligible_shares.toLocaleString()}</dd></div>
+                  <div className="rounded border p-3"><dt className="text-sm">Amount per share</dt><dd className="font-semibold">{money(content.per_share)}</dd></div>
+                  <div className="rounded border p-3"><dt className="text-sm">Retained amount</dt><dd className="font-semibold">{money(content.retained_amount)}</dd></div>
                 </dl>
                 <div className="rounded-lg bg-emerald-50 p-4 dark:bg-emerald-950/30">
                   <h3 className="font-bold">Your allocation</h3>
-                  <p>{selected.my_allocation ? `${selected.my_allocation.shares.toLocaleString()} share(s) × ${money(selected.totals.per_share)} = ${money(selected.my_allocation.amount)}` : "This snapshot has no allocation for your register entry."}</p>
-                  <p className="text-sm">Figures are calculated or declared by the business; this statement does not confirm that any amount has been paid.</p>
+                  <p>{content.shareholder_name} · {content.shareholder_shares.toLocaleString()} share(s) × {money(content.per_share)} = {money(content.calculated_allocation)}</p>
+                  <p className="text-sm">Payout status: {content.payout_status === "calculated" ? "Calculated · not paid" : content.payout_status}</p>
+                  <p className="text-sm">{content.payout_note}</p>
                 </div>
-                {holding && <p className="text-xs text-slate-500">Current register holding: {holding.current_shares.toLocaleString()} share(s). This report allocation uses the holding effective at the end of the report month.</p>}
-                {selected.exception_reason && <p className="text-sm">Documented approval exception: {selected.exception_reason}</p>}
+                {content.exception_reason && <p className="text-sm">Documented approval exception: {content.exception_reason}</p>}
               </section>
               <section className="card space-y-3">
                 <h2 className="text-lg font-bold">Approved expenses in this snapshot</h2>
-                {expenses.length ? (
+                {content.approved_expense_items.length ? (
                   <div className="space-y-2">
-                    {expenses.map((expense) => <article key={expense.ref} className="rounded border p-3 text-sm">
-                      <p className="font-semibold">{expense.ref} · {money(expense.amount)} · ✓ Approved</p>
-                      <p>{expense.payment_date} · {expense.category} · {expense.method.replace(/_/g, " ")}</p>
-                      <p>{expense.description}</p>
-                    </article>)}
+                    {content.approved_expense_items.map((expense) => (
+                      <article key={expense.ref} className="rounded border p-3 text-sm">
+                        <p className="font-semibold">{expense.ref} · {money(expense.amount)} · ✓ Approved</p>
+                        <p>{expense.payment_date} · {expense.category} · {expense.method.replace(/_/g, " ")}</p>
+                        <p>{expense.description}</p>
+                      </article>
+                    ))}
                   </div>
                 ) : <p className="text-sm">No approved expense details were recorded in this snapshot.</p>}
               </section>

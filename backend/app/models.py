@@ -629,3 +629,73 @@ class BusinessSetting(Base):
     def get_bool(db, key: str, default: bool) -> bool:
         value = BusinessSetting.get(db, key)
         return str(value).lower() in {"1", "true", "yes", "y"} if value is not None else default
+
+
+class ShareholderStatement(Base):
+    __tablename__ = "shareholder_statements"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "shareholder_id", name="uq_statement_snapshot_shareholder"),
+        Index("ix_shareholder_statements_shareholder_id", "shareholder_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey("report_snapshots.id"), nullable=False)
+    shareholder_id: Mapped[int] = mapped_column(ForeignKey("shareholders.id"), nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class EmailDeliveryStatus(str, enum.Enum):
+    pending = "pending"
+    sent = "sent"
+    failed = "failed"
+    previewed = "previewed"
+
+
+class EmailDelivery(Base):
+    __tablename__ = "email_deliveries"
+    __table_args__ = (
+        Index("ix_email_deliveries_created_at", "created_at"),
+        Index("ix_email_deliveries_status_created_at", "status", "created_at"),
+        Index("ix_email_deliveries_statement_id", "statement_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    statement_id: Mapped[int | None] = mapped_column(ForeignKey("shareholder_statements.id"))
+    recipient: Mapped[str] = mapped_column(String(255), nullable=False)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[EmailDeliveryStatus] = mapped_column(
+        Enum(EmailDeliveryStatus, native_enum=False, length=12), nullable=False
+    )
+    attempts: Mapped[int] = mapped_column(default=0, nullable=False)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    provider_id: Mapped[str | None] = mapped_column(String(255))
+    html_body: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class PasswordResetRateBucket(Base):
+    __tablename__ = "password_reset_rate_buckets"
+    __table_args__ = (
+        CheckConstraint("request_count > 0", name="ck_password_reset_bucket_count_positive"),
+        Index("ix_password_reset_window_start", "window_start"),
+    )
+
+    key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    request_count: Mapped[int] = mapped_column(nullable=False)

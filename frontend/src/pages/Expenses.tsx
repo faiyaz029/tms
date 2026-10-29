@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { api, downloadCsv } from "../api";
 import { useAuth } from "../auth";
 
 interface ExpenseCategory {
@@ -228,6 +228,7 @@ export default function Expenses() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [exporting, setExporting] = useState(false);
   const canEnter = can("expense.enter");
   const canApprove = can("expense.approve");
   const canConfigure = can("expense.configure");
@@ -290,6 +291,23 @@ export default function Expenses() {
     event.preventDefault();
     setPage(1);
     setAppliedFilters(filters);
+  };
+
+  const exportExpenses = async () => {
+    setExporting(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      Object.entries(appliedFilters).forEach(([key, value]) => {
+        if (value) params.set(key, value);
+      });
+      const query = params.toString();
+      await downloadCsv(`/exports/expenses.csv${query ? `?${query}` : ""}`, "expenses.csv");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const openDetails = async (expense: Expense) => {
@@ -494,7 +512,12 @@ export default function Expenses() {
           </label>
           <button className="btn-o self-end">Search</button>
         </form>
-        <p className="text-sm">{items?.total ?? 0} matching expenses</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm">{items?.total ?? 0} matching expenses</p>
+          <button type="button" className="btn-o" disabled={exporting} onClick={() => void exportExpenses()}>
+            {exporting ? "Exporting…" : "Export filtered CSV"}
+          </button>
+        </div>
         {loading ? <p role="status">Loading expenses…</p> : items?.items.length ? (
           <div className="space-y-3">
             {items.items.map((expense) => (

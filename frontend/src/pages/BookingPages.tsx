@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../api";
+import { api, downloadCsv } from "../api";
 
 type Status = "free" | "held" | "confirmed" | "blocked" | "closed" | "outside_hours" | "beyond_horizon" | "full" | "open";
 
@@ -540,6 +540,18 @@ export function StaffBookings() {
     finally { setLoading(false); }
   }, [date, filterRef, filterStatus]);
 
+  const exportBookings = async () => {
+    setError("");
+    try {
+      const params = new URLSearchParams({ date_from: date, date_to: date });
+      if (filterRef) params.set("ref", filterRef);
+      if (filterStatus) params.set("status", filterStatus);
+      await downloadCsv(`/exports/bookings.csv?${params.toString()}`, "bookings.csv");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   useEffect(() => { void loadBookings(); }, [loadBookings]);
   useEffect(() => { setSelected(""); }, [facility, date]);
 
@@ -658,10 +670,11 @@ export function StaffBookings() {
       <section className="space-y-3">
         <div className="card space-y-3">
           <h2 className="text-lg font-bold">Bookings for {date}</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <label className="space-y-1"><span className="text-sm font-semibold">Reference</span><input className="field" placeholder="Search reference" value={filterRef} onChange={(event) => setFilterRef(event.target.value)} /></label>
             <label className="space-y-1"><span className="text-sm font-semibold">Status</span><select className="field" value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}><option value="">All statuses</option><option value="held">Held</option><option value="confirmed">Confirmed</option><option value="cancelled">Cancelled</option><option value="expired">Expired</option></select></label>
             <button className="btn-o self-end" type="button" onClick={() => void loadBookings()}>Refresh list</button>
+            <button className="btn-o self-end" type="button" onClick={() => void exportBookings()}>Export filtered CSV</button>
           </div>
         </div>
         <ErrorNotice message={error} />

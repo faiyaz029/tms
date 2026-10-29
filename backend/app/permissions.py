@@ -33,6 +33,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "report.approve": {O},
     "report.view_approved": {O, A, AC, SH},
     "shareholder.view_self": {SH},
+    "email.manage": {O, A},
 }
 
 

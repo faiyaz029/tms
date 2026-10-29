@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from ..schemas import (
     ReportDistributionIn, ReportReviewSubmitIn, ReportReopenIn,
     ShareholderCreateIn, ShareholderUpdateIn, ShareholdingCreateIn,
 )
+from ..services.email import deliver_report_emails
 from ..services.reports import (
     add_shareholding, approve_report, approved_expenses_for_period,
     approved_reports_for_user, create_shareholder, my_shareholding,
@@ -119,13 +120,15 @@ def approve_monthly_report(
     year: int,
     month: int,
     body: ReportApproveIn,
+    background_tasks: BackgroundTasks,
     actor: User = Depends(require_permission("report.approve")),
     db: Session = Depends(get_db),
 ):
-    _commit(
+    snapshot = _commit(
         db,
         lambda: approve_report(db, actor, year, month, body.exception_reason),
     )
+    background_tasks.add_task(deliver_report_emails, snapshot.id)
     return report_detail(db, year, month)
 
 

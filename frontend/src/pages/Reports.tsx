@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { api, downloadCsv } from "../api";
 import { useAuth } from "../auth";
 
 interface MethodTotal {
@@ -237,6 +237,7 @@ export default function Reports() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [exporting, setExporting] = useState(false);
   const [eligibleShares, setEligibleShares] = useState("50");
   const [eligibleReason, setEligibleReason] = useState("");
   const [poolAmount, setPoolAmount] = useState("");
@@ -410,6 +411,20 @@ export default function Reports() {
     `${holder.name} ${holder.is_active ? "deactivated" : "activated"}.`,
   );
 
+  const exportReports = async () => {
+    setExporting(true);
+    setError("");
+    try {
+      const [selectedYear, selectedMonth] = period.split("-");
+      const params = new URLSearchParams({ year: selectedYear, month: String(Number(selectedMonth)) });
+      await downloadCsv(`/exports/reports.csv?${params.toString()}`, `reports-${period}.csv`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const [year, month] = useMemo(() => period.split("-"), [period]);
   const isApproved = report?.status === "approved";
 
@@ -422,6 +437,9 @@ export default function Reports() {
           <span className="text-sm font-semibold">Reporting month</span>
           <input className="field" type="month" value={period} onChange={(event) => setPeriod(event.target.value)} />
         </label>
+        <button type="button" className="btn-o" disabled={exporting || !/^\d{4}-\d{2}$/.test(period)} onClick={() => void exportReports()}>
+          {exporting ? "Exporting…" : "Export approved report CSV"}
+        </button>
       </header>
       <ErrorNotice message={error} />
       {notice && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{notice}</p>}

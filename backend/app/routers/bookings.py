@@ -18,6 +18,7 @@ from ..security import normalize_bd_phone
 from ..services.bookings import (
     booking_output, create_booking, perform_booking_action,
 )
+from ..services.exports import booking_query
 from ..services.payments import renew_expired_hold
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -141,35 +142,7 @@ def list_bookings(
     actor: User = Depends(require_permission("booking.manage")),
     db: Session = Depends(get_db),
 ):
-    query = select(Booking).outerjoin(PoolSession, Booking.pool_session_id == PoolSession.id)
-    if facility_id:
-        query = query.where(Booking.facility_id == facility_id)
-    if channel:
-        query = query.where(Booking.channel == channel)
-    if status:
-        query = query.where(Booking.status == status)
-    if ref:
-        query = query.where(Booking.ref.ilike(f"%{ref}%"))
-    if date_from or date_to:
-        if date_from and date_to and date_from > date_to:
-            raise HTTPException(422, "date_from must be on or before date_to")
-        turf_bounds = []
-        pool_bounds = []
-        if date_from:
-            start_bound = datetime.combine(date_from, time.min, tzinfo=BUSINESS_TZ).astimezone(UTC)
-            turf_bounds.append(Booking.starts_at >= start_bound)
-            pool_bounds.append(PoolSession.date >= date_from)
-        if date_to:
-            end_bound = datetime.combine(
-                date_to + timedelta(days=1), time.min, tzinfo=BUSINESS_TZ
-            ).astimezone(UTC)
-            turf_bounds.append(Booking.starts_at < end_bound)
-            pool_bounds.append(PoolSession.date <= date_to)
-        date_filter = or_(
-            and_(*turf_bounds),
-            and_(*pool_bounds),
-        )
-        query = query.where(date_filter)
+    query = booking_query(date_from, date_to, facility_id, channel, status, ref)
     count_query = select(func.count()).select_from(query.subquery())
     total = db.scalar(count_query) or 0
     rows = db.scalars(

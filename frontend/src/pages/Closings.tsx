@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { api, downloadCsv } from "../api";
 import { useAuth } from "../auth";
 
 interface MethodCollection {
@@ -140,6 +140,7 @@ export default function Closings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [exporting, setExporting] = useState(false);
   const canSubmit = can("closing.submit");
   const canReview = can("closing.review");
   const latest = history?.items[0];
@@ -205,6 +206,21 @@ export default function Closings() {
 
   const historyItems = useMemo(() => history?.items ?? [], [history]);
 
+  const exportClosings = async () => {
+    setExporting(true);
+    setError("");
+    try {
+      await downloadCsv(
+        `/exports/closings.csv?date=${encodeURIComponent(businessDay)}`,
+        `closings-${businessDay}.csv`,
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <header>
@@ -224,6 +240,9 @@ export default function Closings() {
             setReviewNotes("");
           }} />
         </label>
+        <button type="button" className="btn-o" disabled={exporting} onClick={() => void exportClosings()}>
+          {exporting ? "Exporting…" : "Export this date"}
+        </button>
         {loading ? <p role="status">Calculating daily totals…</p> : preview && <TotalsView totals={preview} />}
         {canSubmit && (
           <form className="space-y-3 border-t border-slate-200 pt-4 dark:border-slate-700" onSubmit={(event) => void submit(event)}>

@@ -1,5 +1,4 @@
-from datetime import date, datetime, time, timedelta, timezone
-from zoneinfo import ZoneInfo
+from datetime import date
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy import func, select
@@ -18,10 +17,10 @@ from ..services.payments import (
     initiate_online_payment, payment_output, payment_receipt, record_manual_payment,
     reject_payment, renew_expired_hold, simulate_online_result, verify_payment,
 )
+from ..services.exports import payment_query
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 booking_router = APIRouter(prefix="/bookings", tags=["payments"])
-BUSINESS_TZ = ZoneInfo("Asia/Dhaka")
 
 
 def _can_access_booking(db: Session, booking: Booking, user: User) -> bool:
@@ -205,19 +204,7 @@ def list_payments(
     _: User = Depends(require_permission("payment.record")),
     db: Session = Depends(get_db),
 ):
-    query = select(Payment)
-    if received_from:
-        lower = datetime.combine(received_from, time.min, tzinfo=BUSINESS_TZ).astimezone(timezone.utc)
-        query = query.where(Payment.received_at >= lower)
-    if received_to:
-        upper = datetime.combine(
-            received_to + timedelta(days=1), time.min, tzinfo=BUSINESS_TZ,
-        ).astimezone(timezone.utc)
-        query = query.where(Payment.received_at < upper)
-    if method:
-        query = query.where(Payment.method == method)
-    if status:
-        query = query.where(Payment.status == status)
+    query = payment_query(received_from, received_to, method, status)
     total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
     payments = db.scalars(
         query.order_by(Payment.recorded_at.desc())
