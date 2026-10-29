@@ -1,6 +1,6 @@
 # Turf & Pool Manager
 
-FastAPI + PostgreSQL + React (TypeScript, Tailwind). Phases 1–3 are implemented.
+FastAPI + PostgreSQL + React (TypeScript, Tailwind). Phases 1–4 are implemented.
 `demo/turf-pool-demo.html` is the clickable design reference for the finished system.
 
 ## What works now
@@ -13,8 +13,9 @@ FastAPI + PostgreSQL + React (TypeScript, Tailwind). Phases 1–3 are implemente
 - Online, phone and walk-in held bookings, contact lookup, hold extension/release, event history and customer booking privacy
 - Turf overlap protection with a PostgreSQL exclusion constraint; pool capacity serialized with row locks
 - Append-only audit log, Alembic migrations, PostgreSQL test database, customer and staff booking screens, timetable
+- Manual payment recording with independent verification, payment history and receipts
+- Online checkout is explicitly SIMULATED; a verified simulated result confirms the booking and never represents a real transfer
 
-Payment handling and booking confirmation are not implemented yet; they are part of Phase 4.
 Facility schedule, pricing and settings administration screens are also still pending.
 
 ## Run with Docker (recommended)
@@ -78,7 +79,7 @@ belongs to the person needs an SMS OTP provider, which is not included yet.
 ## Roadmap
 2. Facilities, schedules, pool sessions, booking horizon, availability (admin UI pending)
 3. Online, phone and walk-in bookings, holds, overbooking protection (implemented)
-4. Simulated and manual payments, verification
+4. SIMULATED checkout, manual payments, independent verification and receipts (implemented)
 5. Expenses with `EXP-` references, daily closing
 6. Shareholders and monthly reports with approval snapshots
 7. Statements, email previews, exports

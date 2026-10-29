@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 
 type Status = "free" | "held" | "confirmed" | "blocked" | "closed" | "outside_hours" | "beyond_horizon" | "full" | "open";
@@ -67,6 +67,14 @@ const timeLabel = (value: string) => new Intl.DateTimeFormat("en-BD", {
 const dateTimeLabel = (value: string) => new Intl.DateTimeFormat("en-BD", {
   timeZone: "Asia/Dhaka", dateStyle: "medium", timeStyle: "short",
 }).format(new Date(value));
+const paymentStatusLabel: Record<CustomerPaymentRecord["status"], string> = {
+  pending: "◷ Pending",
+  received: "⏳ Received · awaiting verification",
+  verified: "✓ Verified",
+  rejected: "⊘ Rejected",
+  failed: "✕ Failed",
+  refunded: "↩ Refunded",
+};
 
 function StatusText({ status }: { status: Booking["status"] | Status }) {
   const labels: Record<string, string> = {
@@ -149,7 +157,7 @@ export function Book() {
       setCreated(booking);
       setSelectedStart("");
       setSelectedSessionId(null);
-      setMessage(`Booking ${booking.ref} is held. It is not confirmed until payment is recorded and verified.`);
+      setMessage(`Booking ${booking.ref} is held. Continue to My bookings to use the SIMULATED payment flow.`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -244,7 +252,7 @@ export function Book() {
           </div>
         )}
       </section>
-      <p className="text-xs text-slate-500">A held booking is not confirmed. Payment handling and confirmation are implemented in Phase 4.</p>
+      <p className="text-xs text-slate-500">Online checkout is SIMULATED. No real payment is made; the booking confirms only after the backend validates the simulated result.</p>
     </div>
   );
 }
@@ -293,8 +301,163 @@ export function MyBookings() {
       </header>
       <ErrorNotice message={error} />
       {loading ? <p role="status">Loading bookings…</p> : result?.items.length ? (
-        <div className="space-y-3">{result.items.map((booking) => <BookingCard key={booking.id} booking={booking} />)}</div>
+        <div className="space-y-3">{result.items.map((booking) => (
+          <BookingCard key={booking.id} booking={booking} actions={
+            booking.channel === "online" ? <CustomerPayment booking={booking} onUpdated={() => void load()} /> : undefined
+          } />
+        ))}</div>
       ) : <div className="card text-sm">You do not have any bookings yet.</div>}
+    </div>
+  );
+}
+
+interface CustomerPaymentRecord {
+  id: number;
+  ref: string;
+  amount: string;
+  method: string;
+  status: "pending" | "received" | "verified" | "rejected" | "failed" | "refunded";
+  received_at: string | null;
+}
+
+interface CustomerReceipt {
+  ref: string;
+  amount: string;
+  currency: string;
+  status: CustomerPaymentRecord["status"];
+  notice: string;
+  label: string | null;
+}
+
+interface ActiveIntent {
+  id: number;
+  amount: string;
+  status: string;
+  label: string;
+}
+
+function CustomerPayment({ booking, onUpdated }: { booking: Booking; onUpdated: () => void }) {
+  const [payments, setPayments] = useState<CustomerPaymentRecord[]>([]);
+  const [intent, setIntent] = useState<ActiveIntent | null>(null);
+  const [receipt, setReceipt] = useState<CustomerReceipt | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const idempotencyKey = useRef(crypto.randomUUID());
+
+  const loadPayments = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await api<{
+        items: CustomerPaymentRecord[];
+        active_intent: ActiveIntent | null;
+      }>(`/payments/booking/${encodeURIComponent(booking.ref)}`);
+      setPayments(response.items);
+      setIntent(response.active_intent);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [booking.ref]);
+
+  useEffect(() => { void loadPayments(); }, [loadPayments]);
+
+  const initiate = async () => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await api<ActiveIntent & { gateway_label: string }>("/payments/online/initiate", {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey.current },
+        body: { booking_id: booking.id },
+      });
+      setIntent({ ...result, label: result.gateway_label });
+    } catch (err) {
+      setError((err as Error).message);
+      await loadPayments();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const settle = async (result: "success" | "fail" | "cancel") => {
+    if (!intent) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await api<{ booking_status: string; label: string }>(
+        `/payments/online/${intent.id}/simulate/${result}`,
+        { method: "POST" },
+      );
+      setMessage(result === "success"
+        ? `${response.label}: payment verified and booking ${response.booking_status}.`
+        : `SIMULATED PAYMENT ${result.toUpperCase()}: booking remains ${response.booking_status}.`);
+      setIntent(null);
+      idempotencyKey.current = crypto.randomUUID();
+      await loadPayments();
+      onUpdated();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const showReceipt = async (payment: CustomerPaymentRecord) => {
+    setError("");
+    try {
+      setReceipt(await api<CustomerReceipt>(`/payments/${encodeURIComponent(payment.ref)}/receipt`));
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  return (
+    <div className="space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+      {error && <ErrorNotice message={error} />}
+      {message && <p role="status" className="text-sm">{message}</p>}
+      {loading ? <p role="status" className="text-sm">Loading payment status…</p> : (
+        <div className="space-y-2">
+          {payments.map((payment) => (
+            <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span>{payment.ref} · {money(payment.amount)} · {payment.method === "online_simulated" ? "SIMULATED PAYMENT · " : ""}{paymentStatusLabel[payment.status]}</span>
+              {payment.status === "verified" && <button type="button" className="btn-o" onClick={() => void showReceipt(payment)}>View receipt</button>}
+            </div>
+          ))}
+          {receipt && (
+            <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
+              <p className="font-bold">Receipt {receipt.ref}</p>
+              {receipt.label && <p className="font-semibold">{receipt.label}</p>}
+              <p>{money(receipt.amount)} {receipt.currency} · {paymentStatusLabel[receipt.status]}</p>
+              <p>{receipt.notice}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {booking.status === "held" && (
+        <div className="space-y-2">
+          {!intent ? (
+            <button type="button" className="btn" disabled={busy || loading} onClick={() => void initiate()}>
+              {busy ? "Starting…" : `Pay ${money(booking.total_amount)} · SIMULATED`}
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-lg border border-amber-500 p-3">
+              <p className="font-semibold">{intent.label} · {money(intent.amount)}</p>
+              <p className="text-xs">Demonstration only: choose a simulated result. No real payment is made.</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn" disabled={busy} onClick={() => void settle("success")}>Simulate success</button>
+                <button type="button" className="btn-o" disabled={busy} onClick={() => void settle("fail")}>Simulate failure</button>
+                <button type="button" className="btn-o" disabled={busy} onClick={() => void settle("cancel")}>Cancel simulation</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

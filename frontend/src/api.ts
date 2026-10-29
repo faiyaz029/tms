@@ -11,7 +11,10 @@ export class ApiError extends Error {
 
 const csrf = () => document.cookie.split("; ").find((c) => c.startsWith("csrf_token="))?.split("=")[1] ?? "";
 
-export async function api<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  opts: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
+): Promise<T> {
   const method = opts.method ?? "GET";
   const res = await fetch(`/api${path}`, {
     method,
@@ -19,6 +22,7 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
     headers: {
       ...(opts.body ? { "Content-Type": "application/json" } : {}),
       ...(method !== "GET" ? { "X-CSRF-Token": csrf() } : {}),
+      ...opts.headers,
     },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });

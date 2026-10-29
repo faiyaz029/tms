@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     JSON, Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Index,
-    Numeric, String, Text, Time, UniqueConstraint, select,
+    Numeric, String, Text, Time, UniqueConstraint, select, text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -241,6 +241,99 @@ class BookingEvent(Base):
     )
     reason: Mapped[str | None] = mapped_column(Text)
     data: Mapped[dict | None] = mapped_column(JSON)
+
+
+class PaymentStatus(str, enum.Enum):
+    pending = "pending"
+    received = "received"
+    verified = "verified"
+    rejected = "rejected"
+    failed = "failed"
+    refunded = "refunded"
+
+
+class PaymentMethod(Base):
+    __tablename__ = "payment_methods"
+
+    code: Mapped[str] = mapped_column(String(24), primary_key=True)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    requires_reference: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_payment_amount_positive"),
+        Index(
+            "uq_payments_method_trx",
+            "method",
+            "trx_id",
+            unique=True,
+            postgresql_where=text("trx_id IS NOT NULL"),
+            sqlite_where=text("trx_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), nullable=False, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    method: Mapped[str] = mapped_column(ForeignKey("payment_methods.code"), nullable=False)
+    status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus, native_enum=False, length=12), nullable=False
+    )
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trx_id: Mapped[str | None] = mapped_column(String(120))
+    sender_phone: Mapped[str | None] = mapped_column(String(20))
+    bank_ref: Mapped[str | None] = mapped_column(String(120))
+    sms_text: Mapped[str | None] = mapped_column(Text)
+    recorded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    verified_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    notes: Mapped[str | None] = mapped_column(Text)
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class PaymentEvent(Base):
+    __tablename__ = "payment_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    payment_id: Mapped[int] = mapped_column(ForeignKey("payments.id"), nullable=False, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    from_status: Mapped[PaymentStatus | None] = mapped_column(
+        Enum(PaymentStatus, native_enum=False, length=12)
+    )
+    to_status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus, native_enum=False, length=12), nullable=False
+    )
+    reason: Mapped[str | None] = mapped_column(Text)
+    data: Mapped[dict | None] = mapped_column(JSON)
+
+
+class PaymentIntentStatus(str, enum.Enum):
+    initiated = "initiated"
+    succeeded = "succeeded"
+    failed = "failed"
+    cancelled = "cancelled"
+    abandoned = "abandoned"
+
+
+class PaymentIntent(Base):
+    __tablename__ = "payment_intents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), nullable=False, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[PaymentIntentStatus] = mapped_column(
+        Enum(PaymentIntentStatus, native_enum=False, length=12), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class BusinessSetting(Base):

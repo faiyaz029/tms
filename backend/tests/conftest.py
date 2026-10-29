@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_db
 from app.main import app
-from app.models import Role, User
+from app.models import PaymentMethod, Role, User
 from app.security import hash_password
 
 
@@ -49,6 +49,15 @@ def db(postgres_test_engine):
         eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
         Base.metadata.create_all(eng)
         s = sessionmaker(bind=eng, expire_on_commit=False)()
+    s.add_all([
+        PaymentMethod(code="cash", label="Cash", is_active=True, requires_reference=False),
+        PaymentMethod(code="bkash", label="bKash", is_active=True, requires_reference=True),
+        PaymentMethod(code="bank_transfer", label="Bank transfer", is_active=True, requires_reference=True),
+        PaymentMethod(code="card", label="Card", is_active=True, requires_reference=False),
+        PaymentMethod(code="other", label="Other", is_active=True, requires_reference=False),
+        PaymentMethod(code="online_simulated", label="Online (SIMULATED)", is_active=True, requires_reference=False),
+    ])
+    s.commit()
     try:
         yield s
     finally:

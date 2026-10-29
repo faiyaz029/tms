@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:5173"
     business_timezone: str = "Asia/Dhaka"
     currency: str = "BDT"
+    payments_mode: str = "simulated"
 
 
 settings = Settings()

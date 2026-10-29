@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
@@ -115,3 +116,40 @@ class BookingActionIn(BaseModel):
 
 class ExtendHoldIn(BookingActionIn):
     minutes: int = Field(gt=0, le=1440)
+
+
+class ManualPaymentIn(BaseModel):
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    method: str = Field(min_length=1, max_length=24)
+    received_at: datetime
+    trx_id: str | None = Field(default=None, max_length=120)
+    sender_phone: str | None = Field(default=None, max_length=20)
+    bank_ref: str | None = Field(default=None, max_length=120)
+    sms_text: str | None = Field(default=None, max_length=2000)
+    notes: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("received_at")
+    @classmethod
+    def _received_at_timezone(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("received_at must include a timezone")
+        return value
+
+    @field_validator("sender_phone")
+    @classmethod
+    def _sender_phone(cls, value: str | None) -> str | None:
+        return normalize_bd_phone(value) if value else value
+
+    @field_validator("trx_id", "bank_ref")
+    @classmethod
+    def _trim_reference(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else None
+        return normalized or None
+
+
+class PaymentRejectIn(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class OnlinePaymentIn(BaseModel):
+    booking_id: int = Field(gt=0)

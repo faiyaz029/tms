@@ -18,6 +18,7 @@ from ..security import normalize_bd_phone
 from ..services.bookings import (
     booking_output, create_booking, perform_booking_action,
 )
+from ..services.payments import renew_expired_hold
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 my_router = APIRouter(prefix="/my/bookings", tags=["bookings"])
@@ -210,7 +211,7 @@ def get_booking(
     booking = db.scalar(select(Booking).where(Booking.ref == ref))
     if not booking:
         raise HTTPException(404, "Booking not found")
-    if not has_permission(actor.role, "booking.manage"):
+    if not has_permission(actor.role, "booking.manage") and not has_permission(actor.role, "payment.record"):
         contact = db.get(CustomerContact, booking.customer_contact_id)
         if not contact or contact.user_id != actor.id:
             raise HTTPException(403, "You cannot view this booking")
@@ -244,6 +245,28 @@ def extend_booking_hold(
         raise HTTPException(404, "Booking not found")
     perform_booking_action(db, booking, actor, "extend", body.reason, body.minutes)
     db.commit()
+    return booking_output(db, booking)
+
+
+@router.post("/{booking_id}/renew-hold")
+def renew_booking_hold(
+    booking_id: int,
+    body: BookingActionIn,
+    actor: User = Depends(require_permission("booking.manage")),
+    db: Session = Depends(get_db),
+):
+    booking = db.scalar(select(Booking).where(Booking.id == booking_id).with_for_update())
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+    try:
+        renew_expired_hold(db, booking, actor, body.reason)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+        if constraint == "ex_bookings_turf_interval":
+            raise HTTPException(409, "The turf time is no longer available") from exc
+        raise
     return booking_output(db, booking)
 
 
