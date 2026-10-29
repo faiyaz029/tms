@@ -431,6 +431,170 @@ class DailyClosing(Base):
     review_notes: Mapped[str | None] = mapped_column(Text)
 
 
+class Shareholder(Base):
+    __tablename__ = "shareholders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), unique=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    acquisition_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+
+
+class Shareholding(Base):
+    __tablename__ = "shareholdings"
+    __table_args__ = (
+        CheckConstraint("shares > 0", name="ck_shareholding_shares_positive"),
+        CheckConstraint(
+            "effective_to IS NULL OR effective_to >= effective_from",
+            name="ck_shareholding_dates_ordered",
+        ),
+        UniqueConstraint("shareholder_id", "effective_from", name="uq_shareholding_start"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shareholder_id: Mapped[int] = mapped_column(
+        ForeignKey("shareholders.id"), nullable=False, index=True
+    )
+    shares: Mapped[int] = mapped_column(nullable=False)
+    effective_from: Mapped[date] = mapped_column(Date(), nullable=False)
+    effective_to: Mapped[date | None] = mapped_column(Date())
+
+
+class EligibleShareSetting(Base):
+    __tablename__ = "eligible_share_settings"
+    __table_args__ = (
+        CheckConstraint("year >= 2000", name="ck_eligible_share_year_valid"),
+        CheckConstraint("month >= 1 AND month <= 12", name="ck_eligible_share_month_valid"),
+        CheckConstraint("version > 0", name="ck_eligible_share_version_positive"),
+        CheckConstraint("total_shares > 0", name="ck_eligible_share_total_positive"),
+    )
+
+    year: Mapped[int] = mapped_column(primary_key=True)
+    month: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[int] = mapped_column(primary_key=True)
+    total_shares: Mapped[int] = mapped_column(nullable=False)
+    confirmed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str | None] = mapped_column(Text)
+
+
+class ReportingPeriodStatus(str, enum.Enum):
+    preliminary = "preliminary"
+    under_review = "under_review"
+    approved = "approved"
+    reopened = "reopened"
+
+
+class ReportingPeriod(Base):
+    __tablename__ = "reporting_periods"
+    __table_args__ = (
+        UniqueConstraint("year", "month", name="uq_reporting_period_year_month"),
+        CheckConstraint("year >= 2000", name="ck_reporting_period_year_valid"),
+        CheckConstraint("month >= 1 AND month <= 12", name="ck_reporting_period_month_valid"),
+        CheckConstraint("version > 0", name="ck_reporting_period_version_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    year: Mapped[int] = mapped_column(nullable=False)
+    month: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[ReportingPeriodStatus] = mapped_column(
+        Enum(ReportingPeriodStatus, native_enum=False, length=16), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False, default=1)
+    review_note: Mapped[str | None] = mapped_column(Text)
+
+
+class ReportChecklistItem(Base):
+    __tablename__ = "report_checklist_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "reporting_period_id", "version", "key",
+            name="uq_report_checklist_period_version_key",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reporting_period_id: Mapped[int] = mapped_column(
+        ForeignKey("reporting_periods.id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    key: Mapped[str] = mapped_column(String(48), nullable=False)
+    label: Mapped[str] = mapped_column(String(160), nullable=False)
+    is_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    done_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class DistributionDecision(Base):
+    __tablename__ = "distribution_decisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "reporting_period_id", "version",
+            name="uq_distribution_decision_period_version",
+        ),
+        CheckConstraint("pool_amount >= 0", name="ck_distribution_pool_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reporting_period_id: Mapped[int] = mapped_column(
+        ForeignKey("reporting_periods.id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    pool_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    retained_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    decided_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class ReportSnapshot(Base):
+    __tablename__ = "report_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "reporting_period_id", "version", name="uq_report_snapshot_period_version"
+        ),
+        CheckConstraint("total_shares > 0", name="ck_report_snapshot_total_shares_positive"),
+        CheckConstraint("pool >= 0", name="ck_report_snapshot_pool_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reporting_period_id: Mapped[int] = mapped_column(
+        ForeignKey("reporting_periods.id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    approved_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    calculation_basis: Mapped[str] = mapped_column(Text, nullable=False)
+    inputs: Mapped[dict] = mapped_column(JSON, nullable=False)
+    totals: Mapped[dict] = mapped_column(JSON, nullable=False)
+    allocations: Mapped[list] = mapped_column(JSON, nullable=False)
+    total_shares: Mapped[int] = mapped_column(nullable=False)
+    pool: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    remainder: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    exception_reason: Mapped[str | None] = mapped_column(Text)
+
+
+class ReportReopening(Base):
+    __tablename__ = "report_reopenings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reporting_period_id: Mapped[int] = mapped_column(
+        ForeignKey("reporting_periods.id"), nullable=False
+    )
+    previous_snapshot_id: Mapped[int] = mapped_column(
+        ForeignKey("report_snapshots.id"), nullable=False
+    )
+    previous_version: Mapped[int] = mapped_column(nullable=False)
+    new_version: Mapped[int] = mapped_column(nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    authorized_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
 class BusinessSetting(Base):
     __tablename__ = "business_settings"
 

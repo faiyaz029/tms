@@ -305,3 +305,152 @@ class ClosingSubmitIn(BaseModel):
 
 class ClosingReviewIn(BaseModel):
     review_notes: str | None = Field(default=None, max_length=2000)
+
+
+class ShareholderCreateIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    user_id: int | None = Field(default=None, gt=0)
+    notes: str | None = Field(default=None, max_length=2000)
+    acquisition_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    shares: int = Field(gt=0)
+    effective_from: date
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("name")
+    @classmethod
+    def _trim_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("name must be at least 2 characters")
+        return normalized
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized
+
+
+class ShareholderUpdateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    email: EmailStr | None = None
+    user_id: int | None = Field(default=None, gt=0)
+    is_active: bool | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+    acquisition_amount: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("name")
+    @classmethod
+    def _trim_name(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else value
+        if value is not None and len(normalized or "") < 2:
+            raise ValueError("name must be at least 2 characters")
+        return normalized
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, value: EmailStr | None) -> str | None:
+        return str(value).strip().lower() if value else value
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized
+
+    @model_validator(mode="after")
+    def _has_changes(self):
+        if not (self.model_fields_set - {"reason"}):
+            raise ValueError("Provide at least one shareholder field to update")
+        if any(
+            field in self.model_fields_set and getattr(self, field) is None
+            for field in ("name", "email", "is_active", "acquisition_amount")
+        ):
+            raise ValueError("This shareholder field cannot be cleared")
+        return self
+
+
+class ShareholdingCreateIn(BaseModel):
+    shares: int = Field(gt=0)
+    effective_from: date
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized
+
+
+class EligibleSharesUpdateIn(BaseModel):
+    total_shares: int = Field(gt=0)
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized
+
+
+class ReportChecklistUpdateIn(BaseModel):
+    is_done: bool
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class ReportDistributionIn(BaseModel):
+    year: int = Field(ge=2000, le=9998)
+    month: int = Field(ge=1, le=12)
+    pool_amount: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
+    reason: str = Field(min_length=3, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized
+
+
+class ReportReviewSubmitIn(BaseModel):
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class ReportApproveIn(BaseModel):
+    exception_reason: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("exception_reason")
+    @classmethod
+    def _trim_exception_reason(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else None
+        if value is not None and len(normalized or "") < 3:
+            raise ValueError("exception_reason must be at least 3 characters")
+        return normalized
+
+
+class ReportReopenIn(BaseModel):
+    reason: str = Field(min_length=3, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized

@@ -32,6 +32,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "report.prepare": {O, AC},
     "report.approve": {O},
     "report.view_approved": {O, A, AC, SH},
+    "shareholder.view_self": {SH},
 }
 
 

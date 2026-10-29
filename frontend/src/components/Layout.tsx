@@ -6,8 +6,6 @@ export default function Layout() {
   const { user, logout } = useAuth();
   if (!user) return null;
   const items = NAV[user.role];
-  const link = (base: string) => ({ isActive }: { isActive: boolean }) =>
-    `${base} ${isActive ? "font-bold text-pitch-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-300"}`;
 
   return (
     <div className="min-h-screen md:flex">
@@ -30,11 +28,16 @@ export default function Layout() {
         </header>
         <main className="mx-auto max-w-3xl p-4"><Outlet /></main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 flex border-t border-slate-200 bg-white md:hidden dark:border-slate-700 dark:bg-slate-800"
+      <nav className="fixed inset-x-0 bottom-0 overflow-x-auto border-t border-slate-200 bg-white md:hidden dark:border-slate-700 dark:bg-slate-800"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-        {items.slice(0, 5).map((i) => (
-          <NavLink key={i.path} to={i.path} className={link("flex-1 py-3 text-center text-xs")}>{i.label}</NavLink>
-        ))}
+        <div className="flex min-w-max">
+          {items.map((i) => (
+            <NavLink key={i.path} to={i.path}
+              className={({ isActive }) => `min-h-[44px] min-w-[76px] px-3 py-3 text-center text-xs ${isActive ? "font-bold text-pitch-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-300"}`}>
+              {i.label}
+            </NavLink>
+          ))}
+        </div>
       </nav>
     </div>
   );

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import (
-    auth, availability, bookings, expenses, facilities, payments,
+    auth, availability, bookings, expenses, facilities, payments, reports,
     settings as app_settings, users,
 )
 
@@ -21,6 +21,7 @@ api.include_router(bookings.my_router)
 api.include_router(payments.router)
 api.include_router(payments.booking_router)
 api.include_router(expenses.router)
+api.include_router(reports.router)
 api.include_router(app_settings.router)
 
 
