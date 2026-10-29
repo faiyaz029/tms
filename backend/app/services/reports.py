@@ -5,7 +5,7 @@ from decimal import Decimal, ROUND_DOWN
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..audit import record
@@ -378,14 +378,13 @@ def _report_calculation(
     }
 
 
-def _snapshot_output(db: Session, snapshot: ReportSnapshot) -> dict:
-    approver = db.get(User, snapshot.approved_by)
+def _snapshot_output(snapshot: ReportSnapshot, approver_name: str) -> dict:
     return {
         "id": snapshot.id,
         "version": snapshot.version,
         "created_at": snapshot.created_at.isoformat(),
         "approved_by": snapshot.approved_by,
-        "approver_name": approver.full_name if approver else "Unknown",
+        "approver_name": approver_name,
         "calculation_basis": snapshot.calculation_basis,
         "inputs": snapshot.inputs,
         "totals": snapshot.totals,
@@ -395,6 +394,23 @@ def _snapshot_output(db: Session, snapshot: ReportSnapshot) -> dict:
         "remainder": str(snapshot.remainder),
         "exception_reason": snapshot.exception_reason,
     }
+
+
+def _snapshot_outputs(db: Session, snapshots: list[ReportSnapshot]) -> list[dict]:
+    if not snapshots:
+        return []
+    approvers = {
+        user.id: user.full_name
+        for user in db.scalars(
+            select(User).where(
+                User.id.in_({snapshot.approved_by for snapshot in snapshots})
+            )
+        )
+    }
+    return [
+        _snapshot_output(snapshot, approvers.get(snapshot.approved_by, "Unknown"))
+        for snapshot in snapshots
+    ]
 
 
 def report_detail(db: Session, year: int, month: int) -> dict:
@@ -462,7 +478,7 @@ def report_detail(db: Session, year: int, month: int) -> dict:
     else:
         totals = calculation["totals"]
         unresolved = calculation["unresolved"]
-    history = [_snapshot_output(db, snapshot) for snapshot in snapshots]
+    history = _snapshot_outputs(db, snapshots)
     reopenings = db.scalars(
         select(ReportReopening)
         .where(ReportReopening.reporting_period_id == period.id)
@@ -982,16 +998,26 @@ def reopen_report(
     return period
 
 
-def shareholder_register(db: Session) -> list[dict]:
-    holders = db.scalars(select(Shareholder).order_by(Shareholder.name, Shareholder.id)).all()
+def _shareholder_outputs(db: Session, holders: list[Shareholder]) -> list[dict]:
+    if not holders:
+        return []
+    holder_ids = {holder.id for holder in holders}
+    holdings_by_shareholder: dict[int, list[Shareholding]] = {}
+    for holding in db.scalars(
+        select(Shareholding)
+        .where(Shareholding.shareholder_id.in_(holder_ids))
+        .order_by(Shareholding.shareholder_id, Shareholding.effective_from.desc())
+    ):
+        holdings_by_shareholder.setdefault(holding.shareholder_id, []).append(holding)
+    user_ids = {holder.user_id for holder in holders if holder.user_id is not None}
+    users = {
+        user.id: user
+        for user in db.scalars(select(User).where(User.id.in_(user_ids)))
+    } if user_ids else {}
     output = []
     for holder in holders:
-        holdings = db.scalars(
-            select(Shareholding)
-            .where(Shareholding.shareholder_id == holder.id)
-            .order_by(Shareholding.effective_from.desc())
-        ).all()
-        linked_user = db.get(User, holder.user_id) if holder.user_id else None
+        linked_user = users.get(holder.user_id)
+        holdings = holdings_by_shareholder.get(holder.id, [])
         output.append({
             "id": holder.id,
             "name": holder.name,
@@ -1009,6 +1035,26 @@ def shareholder_register(db: Session) -> list[dict]:
             } for row in holdings],
         })
     return output
+
+
+def shareholder_register(db: Session, page: int = 1, size: int = 20) -> dict:
+    total = db.scalar(select(func.count()).select_from(Shareholder)) or 0
+    holders = db.scalars(
+        select(Shareholder)
+        .order_by(Shareholder.name, Shareholder.id)
+        .offset((page - 1) * size)
+        .limit(size)
+    ).all()
+    return {
+        "items": _shareholder_outputs(db, holders),
+        "total": total,
+        "page": page,
+        "size": size,
+    }
+
+
+def shareholder_output(db: Session, holder: Shareholder) -> dict:
+    return _shareholder_outputs(db, [holder])[0]
 
 
 def my_shareholding(db: Session, user: User) -> dict:
@@ -1041,22 +1087,44 @@ def my_shareholding(db: Session, user: User) -> dict:
     }
 
 
-def approved_reports_for_user(db: Session, user: User) -> list[dict]:
+def approved_reports_for_user(
+    db: Session,
+    user: User,
+    page: int = 1,
+    size: int = 20,
+) -> dict:
     holder = db.scalar(select(Shareholder).where(Shareholder.user_id == user.id)) if user.role.value == "shareholder" else None
     if user.role.value == "shareholder" and not holder:
         raise HTTPException(404, "No shareholder register entry is linked to this account")
-    snapshots = db.execute(
+    latest_version = (
+        select(func.max(ReportSnapshot.version))
+        .where(ReportSnapshot.reporting_period_id == ReportingPeriod.id)
+        .correlate(ReportingPeriod)
+        .scalar_subquery()
+    )
+    query = (
         select(ReportSnapshot, ReportingPeriod)
         .join(ReportingPeriod, ReportingPeriod.id == ReportSnapshot.reporting_period_id)
-        .order_by(ReportingPeriod.year.desc(), ReportingPeriod.month.desc(), ReportSnapshot.version.desc())
+        .where(ReportSnapshot.version == latest_version)
+    )
+    total = db.scalar(
+        select(func.count(ReportSnapshot.id))
+        .join(ReportingPeriod, ReportingPeriod.id == ReportSnapshot.reporting_period_id)
+        .where(ReportSnapshot.version == latest_version)
+    ) or 0
+    snapshots = db.execute(
+        query
+        .order_by(
+            ReportingPeriod.year.desc(),
+            ReportingPeriod.month.desc(),
+            ReportSnapshot.version.desc(),
+        )
+        .offset((page - 1) * size)
+        .limit(size)
     ).all()
-    seen_periods: set[int] = set()
+    snapshot_outputs = _snapshot_outputs(db, [snapshot for snapshot, _ in snapshots])
     output = []
-    for snapshot, period in snapshots:
-        if period.id in seen_periods:
-            continue
-        seen_periods.add(period.id)
-        row = _snapshot_output(db, snapshot)
+    for (snapshot, period), row in zip(snapshots, snapshot_outputs):
         row.update({
             "year": period.year,
             "month": period.month,
@@ -1078,10 +1146,16 @@ def approved_reports_for_user(db: Session, user: User) -> list[dict]:
             row.pop("allocations", None)
             row["my_allocation"] = own
         output.append(row)
-    return output
+    return {"items": output, "total": total, "page": page, "size": size}
 
 
-def approved_expenses_for_period(db: Session, year: int, month: int) -> list[dict]:
+def approved_expenses_for_period(
+    db: Session,
+    year: int,
+    month: int,
+    page: int = 1,
+    size: int = 20,
+) -> dict:
     period = db.scalar(
         select(ReportingPeriod).where(
             ReportingPeriod.year == year,
@@ -1098,7 +1172,14 @@ def approved_expenses_for_period(db: Session, year: int, month: int) -> list[dic
     )
     if not snapshot:
         raise HTTPException(404, "No approved report exists for this period")
-    return [
+    expenses = [
         expense for expense in snapshot.inputs.get("expenses", [])
         if expense["status"] == ExpenseStatus.approved.value
     ]
+    start = (page - 1) * size
+    return {
+        "items": expenses[start:start + size],
+        "total": len(expenses),
+        "page": page,
+        "size": size,
+    }

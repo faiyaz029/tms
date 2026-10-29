@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -390,42 +392,80 @@ def perform_booking_action(
 
 
 def booking_output(db: Session, booking: Booking, include_events: bool = False) -> dict:
-    contact = db.get(CustomerContact, booking.customer_contact_id)
-    session = db.get(PoolSession, booking.pool_session_id) if booking.pool_session_id else None
-    result = {
-        "id": booking.id,
-        "ref": booking.ref,
-        "facility_id": booking.facility_id,
-        "channel": booking.channel.value,
-        "status": booking.status.value,
-        "customer": {
-            "name": contact.name,
-            "phone": contact.phone,
-            "address": contact.address,
-        },
-        "created_at": _as_utc(booking.created_at).isoformat() if booking.created_at else None,
-        "hold_expires_at": _as_utc(booking.hold_expires_at).isoformat() if booking.hold_expires_at else None,
-        "total_amount": str(booking.total_amount),
-        "currency": booking.currency,
-        "notes": booking.notes,
-        "starts_at": _as_utc(booking.starts_at).isoformat() if booking.starts_at else None,
-        "ends_at": _as_utc(booking.ends_at).isoformat() if booking.ends_at else None,
-        "pool_session_id": booking.pool_session_id,
-        "participants": booking.participants,
-        "pool_session": {
-            "starts_at": _as_utc(session.start_at).isoformat(),
-            "ends_at": _as_utc(session.end_at).isoformat(),
-        } if session else None,
+    return booking_outputs(db, [booking], include_events)[0]
+
+
+def booking_outputs(
+    db: Session,
+    bookings: Sequence[Booking],
+    include_events: bool = False,
+) -> list[dict]:
+    rows = list(bookings)
+    if not rows:
+        return []
+
+    contacts = {
+        contact.id: contact
+        for contact in db.scalars(
+            select(CustomerContact).where(
+                CustomerContact.id.in_({booking.customer_contact_id for booking in rows})
+            )
+        )
     }
+    session_ids = {
+        booking.pool_session_id for booking in rows if booking.pool_session_id is not None
+    }
+    sessions = {
+        session.id: session
+        for session in db.scalars(
+            select(PoolSession).where(PoolSession.id.in_(session_ids))
+        )
+    } if session_ids else {}
+    events_by_booking: dict[int, list[BookingEvent]] = defaultdict(list)
     if include_events:
-        events = db.scalars(
-            select(BookingEvent).where(BookingEvent.booking_id == booking.id).order_by(BookingEvent.at)
-        ).all()
-        result["events"] = [{
-            "at": event.at.isoformat(),
-            "from_status": event.from_status.value if event.from_status else None,
-            "to_status": event.to_status.value,
-            "reason": event.reason,
-            "data": event.data,
-        } for event in events]
-    return result
+        for event in db.scalars(
+            select(BookingEvent)
+            .where(BookingEvent.booking_id.in_({booking.id for booking in rows}))
+            .order_by(BookingEvent.at)
+        ):
+            events_by_booking[event.booking_id].append(event)
+
+    results = []
+    for booking in rows:
+        contact = contacts[booking.customer_contact_id]
+        session = sessions.get(booking.pool_session_id)
+        result = {
+            "id": booking.id,
+            "ref": booking.ref,
+            "facility_id": booking.facility_id,
+            "channel": booking.channel.value,
+            "status": booking.status.value,
+            "customer": {
+                "name": contact.name,
+                "phone": contact.phone,
+                "address": contact.address,
+            },
+            "created_at": _as_utc(booking.created_at).isoformat() if booking.created_at else None,
+            "hold_expires_at": _as_utc(booking.hold_expires_at).isoformat() if booking.hold_expires_at else None,
+            "total_amount": str(booking.total_amount),
+            "currency": booking.currency,
+            "notes": booking.notes,
+            "starts_at": _as_utc(booking.starts_at).isoformat() if booking.starts_at else None,
+            "ends_at": _as_utc(booking.ends_at).isoformat() if booking.ends_at else None,
+            "pool_session_id": booking.pool_session_id,
+            "participants": booking.participants,
+            "pool_session": {
+                "starts_at": _as_utc(session.start_at).isoformat(),
+                "ends_at": _as_utc(session.end_at).isoformat(),
+            } if session else None,
+        }
+        if include_events:
+            result["events"] = [{
+                "at": event.at.isoformat(),
+                "from_status": event.from_status.value if event.from_status else None,
+                "to_status": event.to_status.value,
+                "reason": event.reason,
+                "data": event.data,
+            } for event in events_by_booking[booking.id]]
+        results.append(result)
+    return results

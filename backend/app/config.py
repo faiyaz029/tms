@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    app_env: Literal["development", "demo", "production"] = "development"
+
     database_url: str = "postgresql://turf:turf@localhost:5432/turfpool"
     test_database_url: str | None = None
     secret_key: str = "change-me-in-env"

@@ -18,7 +18,8 @@ from ..schemas import (
 )
 from ..services.expenses import (
     approve_expense, closing_output, closing_totals, correct_expense,
-    create_expense, expense_output, reject_expense, review_closing, submit_closing,
+    create_expense, expense_output, expense_outputs, reject_expense,
+    review_closing, submit_closing,
 )
 from ..services.exports import closing_query, expense_query
 
@@ -131,7 +132,7 @@ def list_expenses(
         .limit(size)
     ).all()
     return {
-        "items": [expense_output(db, expense) for expense in expenses],
+        "items": expense_outputs(db, expenses),
         "total": total,
         "page": page,
         "size": size,

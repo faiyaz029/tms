@@ -22,16 +22,33 @@ def _statement_output(statement: ShareholderStatement) -> dict:
 
 @router.get("/statements/mine")
 def my_statements(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
     actor: User = Depends(require_permission("shareholder.view_self")),
     db: Session = Depends(get_db),
 ):
-    statements = db.scalars(
+    query = (
         select(ShareholderStatement)
         .join(Shareholder, Shareholder.id == ShareholderStatement.shareholder_id)
         .where(Shareholder.user_id == actor.id)
+    )
+    total = db.scalar(
+        select(func.count(ShareholderStatement.id))
+        .join(Shareholder, Shareholder.id == ShareholderStatement.shareholder_id)
+        .where(Shareholder.user_id == actor.id)
+    ) or 0
+    statements = db.scalars(
+        query
         .order_by(ShareholderStatement.generated_at.desc(), ShareholderStatement.id.desc())
+        .offset((page - 1) * size)
+        .limit(size)
     ).all()
-    return {"items": [_statement_output(statement) for statement in statements]}
+    return {
+        "items": [_statement_output(statement) for statement in statements],
+        "total": total,
+        "page": page,
+        "size": size,
+    }
 
 
 @router.get("/statements/{statement_id}")

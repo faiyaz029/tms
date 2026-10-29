@@ -447,14 +447,38 @@ def review_closing(
     return closing
 
 
-def expense_output(db: Session, expense: Expense, include_events: bool = False) -> dict:
-    category = db.get(ExpenseCategory, expense.category)
-    result = {
+def _expense_output(expense: Expense, category_label: str) -> dict:
+    return {
         **expense_snapshot(expense),
         "id": expense.id,
-        "category_label": category.label if category else expense.category,
+        "category_label": category_label,
         "created_at": expense.created_at.isoformat(),
     }
+
+
+def expense_outputs(db: Session, expenses: list[Expense]) -> list[dict]:
+    rows = list(expenses)
+    if not rows:
+        return []
+    category_codes = {expense.category for expense in rows}
+    categories = {
+        category.code: category.label
+        for category in db.scalars(
+            select(ExpenseCategory).where(ExpenseCategory.code.in_(category_codes))
+        )
+    }
+    return [
+        _expense_output(expense, categories.get(expense.category, expense.category))
+        for expense in rows
+    ]
+
+
+def expense_output(db: Session, expense: Expense, include_events: bool = False) -> dict:
+    category = db.get(ExpenseCategory, expense.category)
+    result = _expense_output(
+        expense,
+        category.label if category else expense.category,
+    )
     if include_events:
         events = db.scalars(
             select(ExpenseEvent)

@@ -8,7 +8,12 @@ export default function Layout() {
   const items = NAV[user.role];
 
   return (
-    <div className="min-h-screen md:flex">
+    <div className={`min-h-screen md:flex ${import.meta.env.VITE_APP_ENV === "demo" ? "pt-7" : ""}`}>
+      {import.meta.env.VITE_APP_ENV === "demo" && (
+        <div role="status" className="fixed inset-x-0 top-0 z-50 bg-amber-300 px-3 py-1 text-center text-sm font-bold text-amber-950">
+          DEMO ENVIRONMENT · Payments are simulated; no real money is accepted.
+        </div>
+      )}
       <aside className="hidden w-56 shrink-0 bg-pitch-900 p-4 text-white md:block">
         <h1 className="mb-6 text-lg font-bold"> Turf &amp; Pool</h1>
         <nav className="space-y-1">

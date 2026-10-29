@@ -37,8 +37,8 @@ export function Login() {
       <GoogleButton onCredential={onGoogle} />
       <p className="text-center text-sm text-slate-500">or use your email</p>
       <form onSubmit={submit} className="space-y-3">
-        <input className="field" type="email" placeholder="Email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input className="field" type="password" placeholder="Password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <input className="field" type="email" aria-label="Email" placeholder="Email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input className="field" type="password" aria-label="Password" placeholder="Password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         <Err msg={error} />
         <button className="btn w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
       </form>
@@ -78,7 +78,7 @@ export function ForgotPassword() {
         <>
           <p className="text-sm">Enter your account email. If it matches an active account, we will send a reset link.</p>
           <form onSubmit={(event) => void submit(event)} className="space-y-3">
-            <input className="field" type="email" placeholder="Email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+            <input className="field" type="email" aria-label="Email" placeholder="Email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
             <Err msg={error} />
             <button className="btn w-full" disabled={busy}>{busy ? "Sending…" : "Send reset link"}</button>
           </form>
@@ -131,8 +131,8 @@ export function ResetPassword() {
         <p role="status">Your password has been updated. <Link className="font-semibold underline" to="/login">Sign in</Link></p>
       ) : (
         <form onSubmit={(event) => void submit(event)} className="space-y-3">
-          <input className="field" type="password" placeholder="New password (8+ characters)" autoComplete="new-password" minLength={8} maxLength={72} required value={password} onChange={(event) => setPassword(event.target.value)} />
-          <input className="field" type="password" placeholder="Confirm new password" autoComplete="new-password" minLength={8} maxLength={72} required value={confirm} onChange={(event) => setConfirm(event.target.value)} />
+          <input className="field" type="password" aria-label="New password" placeholder="New password (8+ characters)" autoComplete="new-password" minLength={8} maxLength={72} required value={password} onChange={(event) => setPassword(event.target.value)} />
+          <input className="field" type="password" aria-label="Confirm new password" placeholder="Confirm new password" autoComplete="new-password" minLength={8} maxLength={72} required value={confirm} onChange={(event) => setConfirm(event.target.value)} />
           <Err msg={error} />
           <button className="btn w-full" disabled={busy}>{busy ? "Updating…" : "Update password"}</button>
         </form>
@@ -150,11 +150,11 @@ export function Register() {
   return (
     <Shell title="Create account">
       <form onSubmit={submit} className="space-y-3">
-        <input className="field" placeholder="Full name" required value={f.full_name} onChange={set("full_name")} />
-        <input className="field" type="email" placeholder="Email" required value={f.email} onChange={set("email")} />
-        <input className="field" type="password" placeholder="Password (8+ characters)" minLength={8} required value={f.password} onChange={set("password")} />
-        <input className="field" type="tel" inputMode="tel" placeholder="Mobile number, like 01712345678" required value={f.phone} onChange={set("phone")} />
-        <textarea className="field" rows={2} placeholder="Full address" required minLength={8} value={f.address} onChange={set("address")} />
+        <input className="field" aria-label="Full name" placeholder="Full name" required value={f.full_name} onChange={set("full_name")} />
+        <input className="field" type="email" aria-label="Email" placeholder="Email" required value={f.email} onChange={set("email")} />
+        <input className="field" type="password" aria-label="Password" placeholder="Password (8+ characters)" minLength={8} required value={f.password} onChange={set("password")} />
+        <input className="field" type="tel" aria-label="Mobile number" inputMode="tel" placeholder="Mobile number, like 01712345678" required value={f.phone} onChange={set("phone")} />
+        <textarea className="field" aria-label="Full address" rows={2} placeholder="Full address" required minLength={8} value={f.address} onChange={set("address")} />
         <Err msg={error} />
         <button className="btn w-full" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
       </form>
@@ -172,8 +172,8 @@ export function CompleteProfile() {
     <Shell title="Complete your profile">
       <p className="text-slate-600 dark:text-slate-300">Add your phone number and address before you book.</p>
       <form onSubmit={submit} className="space-y-3">
-        <input className="field" type="tel" inputMode="tel" placeholder="01712345678" required value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
-        <textarea className="field" rows={2} placeholder="Full address" required minLength={8} value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} />
+        <input className="field" type="tel" aria-label="Mobile number" inputMode="tel" placeholder="01712345678" required value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+        <textarea className="field" aria-label="Full address" rows={2} placeholder="Full address" required minLength={8} value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} />
         <Err msg={error} />
         <button className="btn w-full" disabled={busy}>Save and continue</button>
       </form>

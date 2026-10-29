@@ -34,6 +34,13 @@ interface ApprovedReport {
   my_allocation: { shares: number; amount: string } | null;
 }
 
+interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+}
+
 interface StatementContent {
   business_name: string;
   period: string;
@@ -86,25 +93,35 @@ function ErrorNotice({ message }: { message: string }) {
 function useShareholderData() {
   const [holding, setHolding] = useState<Shareholding | null>(null);
   const [reports, setReports] = useState<ApprovedReport[]>([]);
+  const [reportPage, setReportPage] = useState(1);
+  const [reportTotal, setReportTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
     Promise.all([
       api<Shareholding>("/my/shareholding"),
-      api<{ items: ApprovedReport[] }>("/reports/approved"),
+      api<PageResult<ApprovedReport>>(`/reports/approved?page=${reportPage}&size=20`),
     ]).then(([ownHolding, approved]) => {
-      setHolding(ownHolding);
-      setReports(approved.items);
-    }).catch((err) => setError((err as Error).message))
-      .finally(() => setLoading(false));
-  }, []);
+      if (active) {
+        setHolding(ownHolding);
+        setReports(approved.items);
+        setReportTotal(approved.total);
+      }
+    }).catch((err) => { if (active) setError((err as Error).message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [reportPage]);
 
-  return { holding, reports, loading, error };
+  return { holding, reports, reportPage, reportTotal, setReportPage, loading, error };
 }
 
 export function ShareholderOverview() {
-  const { holding, reports, loading, error } = useShareholderData();
+  const { holding, reports, reportPage, reportTotal, setReportPage, loading, error } = useShareholderData();
+  const reportPageCount = Math.ceil(reportTotal / 20);
   return (
     <div className="space-y-5">
       <header>
@@ -136,6 +153,13 @@ export function ShareholderOverview() {
               {report.exception_reason && <p className="text-sm">Documented approval exception: {report.exception_reason}</p>}
             </article>
           )) : <p className="text-sm">No approved reports are available yet.</p>}
+          {reportPageCount > 1 && (
+            <nav aria-label="Approved report pages" className="flex items-center justify-between gap-3 pt-2">
+              <button type="button" className="btn-o min-h-11" disabled={reportPage <= 1} onClick={() => setReportPage((page) => page - 1)}>Previous</button>
+              <span className="text-sm">Page {reportPage} of {reportPageCount}</span>
+              <button type="button" className="btn-o min-h-11" disabled={reportPage >= reportPageCount} onClick={() => setReportPage((page) => page + 1)}>Next</button>
+            </nav>
+          )}
         </section>
       )}
     </div>
@@ -144,20 +168,28 @@ export function ShareholderOverview() {
 
 export function ShareholderStatement() {
   const [statements, setStatements] = useState<StatementRecord[]>([]);
+  const [statementPage, setStatementPage] = useState(1);
+  const [statementTotal, setStatementTotal] = useState(0);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    api<{ items: StatementRecord[] }>("/statements/mine")
+    setLoading(true);
+    setError("");
+    api<PageResult<StatementRecord>>(`/statements/mine?page=${statementPage}&size=20`)
       .then((result) => {
-        if (active) setStatements(result.items);
+        if (active) {
+          setStatements(result.items);
+          setStatementTotal(result.total);
+          setSelectedId(null);
+        }
       })
       .catch((err) => { if (active) setError((err as Error).message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [statementPage]);
 
   const selected = statements.find((statement) => statement.id === selectedId) ?? statements[0];
   const content = selected?.content;
@@ -225,6 +257,13 @@ export function ShareholderStatement() {
                 ) : <p className="text-sm">No approved expense details were recorded in this snapshot.</p>}
               </section>
             </>
+          )}
+          {statementTotal > 20 && (
+            <nav aria-label="Statement pages" className="no-print flex items-center justify-between gap-3">
+              <button type="button" className="btn-o min-h-11" disabled={statementPage <= 1} onClick={() => setStatementPage((page) => page - 1)}>Previous</button>
+              <span className="text-sm">Page {statementPage} of {Math.ceil(statementTotal / 20)}</span>
+              <button type="button" className="btn-o min-h-11" disabled={statementPage >= Math.ceil(statementTotal / 20)} onClick={() => setStatementPage((page) => page + 1)}>Next</button>
+            </nav>
           )}
         </>
       )}

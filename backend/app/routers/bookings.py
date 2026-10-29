@@ -16,7 +16,7 @@ from ..permissions import has_permission, require_permission
 from ..schemas import BookingActionIn, BookingSelection, ExtendHoldIn, StaffBookingIn
 from ..security import normalize_bd_phone
 from ..services.bookings import (
-    booking_output, create_booking, perform_booking_action,
+    booking_output, booking_outputs, create_booking, perform_booking_action,
 )
 from ..services.exports import booking_query
 from ..services.payments import renew_expired_hold
@@ -150,7 +150,7 @@ def list_bookings(
         .offset((page - 1) * size)
         .limit(size)
     ).all()
-    items = [booking_output(db, booking) for booking in rows]
+    items = booking_outputs(db, rows)
     return {"items": items, "total": total, "page": page, "size": size}
 
 
@@ -276,5 +276,5 @@ def list_my_bookings(
         .offset((page - 1) * size)
         .limit(size)
     ).all()
-    return {"items": [booking_output(db, booking, include_events=True) for booking in rows],
+    return {"items": booking_outputs(db, rows, include_events=True),
             "total": total, "page": page, "size": size}

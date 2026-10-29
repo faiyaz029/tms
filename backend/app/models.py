@@ -57,7 +57,7 @@ class AuditLog(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     action: Mapped[str] = mapped_column(String(80), index=True)
     entity: Mapped[str] = mapped_column(String(60))
     entity_id: Mapped[str | None] = mapped_column(String(60))
@@ -81,7 +81,7 @@ class OperatingSchedule(Base):
     __tablename__ = "operating_schedules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
+    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False, index=True)
     weekday: Mapped[int] = mapped_column(nullable=False)
     open_time: Mapped[time] = mapped_column(Time(), nullable=False)
     close_time: Mapped[time] = mapped_column(Time(), nullable=False)
@@ -92,8 +92,8 @@ class SpecialDay(Base):
     __tablename__ = "special_days"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    facility_id: Mapped[int | None] = mapped_column(ForeignKey("facilities.id"))
-    date: Mapped[date] = mapped_column(Date(), nullable=False)
+    facility_id: Mapped[int | None] = mapped_column(ForeignKey("facilities.id"), index=True)
+    date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
     is_closed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     open_time: Mapped[time | None] = mapped_column(Time())
     close_time: Mapped[time | None] = mapped_column(Time())
@@ -104,9 +104,9 @@ class Block(Base):
     __tablename__ = "blocks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
-    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False, index=True)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     reason: Mapped[str | None] = mapped_column(String(200))
 
 
@@ -117,7 +117,7 @@ class TurfPrice(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
+    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False, index=True)
     weekday: Mapped[int | None] = mapped_column(nullable=True)
     start_time: Mapped[time | None] = mapped_column(Time())
     end_time: Mapped[time | None] = mapped_column(Time())
@@ -133,7 +133,7 @@ class PoolSessionTemplate(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
+    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False, index=True)
     weekday: Mapped[int] = mapped_column(nullable=False)
     start_time: Mapped[time] = mapped_column(Time(), nullable=False)
     end_time: Mapped[time] = mapped_column(Time(), nullable=False)
@@ -152,7 +152,7 @@ class PoolSession(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
-    date: Mapped[date] = mapped_column(Date(), nullable=False)
+    date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     capacity: Mapped[int] = mapped_column(nullable=False)
@@ -204,25 +204,25 @@ class Booking(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ref: Mapped[str] = mapped_column(String(20), nullable=False)
-    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
+    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False, index=True)
     channel: Mapped[BookingChannel] = mapped_column(
-        Enum(BookingChannel, native_enum=False, length=12), nullable=False
+        Enum(BookingChannel, native_enum=False, length=12), nullable=False, index=True
     )
     status: Mapped[BookingStatus] = mapped_column(
-        Enum(BookingStatus, native_enum=False, length=12), nullable=False
+        Enum(BookingStatus, native_enum=False, length=12), nullable=False, index=True
     )
     customer_contact_id: Mapped[int] = mapped_column(
-        ForeignKey("customer_contacts.id"), nullable=False
+        ForeignKey("customer_contacts.id"), nullable=False, index=True
     )
-    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
     hold_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="BDT", nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
-    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    pool_session_id: Mapped[int | None] = mapped_column(ForeignKey("pool_sessions.id"))
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    pool_session_id: Mapped[int | None] = mapped_column(ForeignKey("pool_sessions.id"), index=True)
     participants: Mapped[int | None] = mapped_column()
 
 
@@ -232,7 +232,7 @@ class BookingEvent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), nullable=False, index=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     from_status: Mapped[BookingStatus | None] = mapped_column(
         Enum(BookingStatus, native_enum=False, length=12)
     )
@@ -280,19 +280,23 @@ class Payment(Base):
     booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), nullable=False, index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    method: Mapped[str] = mapped_column(ForeignKey("payment_methods.code"), nullable=False)
+    method: Mapped[str] = mapped_column(
+        ForeignKey("payment_methods.code"), nullable=False, index=True
+    )
     status: Mapped[PaymentStatus] = mapped_column(
-        Enum(PaymentStatus, native_enum=False, length=12), nullable=False
+        Enum(PaymentStatus, native_enum=False, length=12), nullable=False, index=True
     )
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False, index=True
+    )
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     trx_id: Mapped[str | None] = mapped_column(String(120))
     sender_phone: Mapped[str | None] = mapped_column(String(20))
     bank_ref: Mapped[str | None] = mapped_column(String(120))
     sms_text: Mapped[str | None] = mapped_column(Text)
-    recorded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-    verified_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    recorded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    verified_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     notes: Mapped[str | None] = mapped_column(Text)
     rejection_reason: Mapped[str | None] = mapped_column(Text)
 
@@ -303,7 +307,7 @@ class PaymentEvent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     payment_id: Mapped[int] = mapped_column(ForeignKey("payments.id"), nullable=False, index=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     from_status: Mapped[PaymentStatus | None] = mapped_column(
         Enum(PaymentStatus, native_enum=False, length=12)
     )
@@ -329,7 +333,7 @@ class PaymentIntent(Base):
     booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), nullable=False, index=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     status: Mapped[PaymentIntentStatus] = mapped_column(
-        Enum(PaymentIntentStatus, native_enum=False, length=12), nullable=False
+        Enum(PaymentIntentStatus, native_enum=False, length=12), nullable=False, index=True
     )
     idempotency_key: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -361,25 +365,31 @@ class Expense(Base):
     ref: Mapped[str] = mapped_column(String(20), nullable=False)
     expense_date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
     payment_date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
-    category: Mapped[str] = mapped_column(ForeignKey("expense_categories.code"), nullable=False)
+    category: Mapped[str] = mapped_column(
+        ForeignKey("expense_categories.code"), nullable=False, index=True
+    )
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    method: Mapped[str] = mapped_column(ForeignKey("payment_methods.code"), nullable=False)
+    method: Mapped[str] = mapped_column(
+        ForeignKey("payment_methods.code"), nullable=False, index=True
+    )
     vendor: Mapped[str | None] = mapped_column(String(160))
     memo_no: Mapped[str | None] = mapped_column(String(120))
     has_physical_memo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     trx_id: Mapped[str | None] = mapped_column(String(120))
     bank_ref: Mapped[str | None] = mapped_column(String(120))
     sms_text: Mapped[str | None] = mapped_column(Text)
-    entered_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    entered_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     status: Mapped[ExpenseStatus] = mapped_column(
-        Enum(ExpenseStatus, native_enum=False, length=12), nullable=False
+        Enum(ExpenseStatus, native_enum=False, length=12), nullable=False, index=True
     )
-    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rejection_reason: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, nullable=False, index=True
+    )
 
 
 class ExpenseEvent(Base):
@@ -388,7 +398,7 @@ class ExpenseEvent(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     expense_id: Mapped[int] = mapped_column(ForeignKey("expenses.id"), nullable=False, index=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     action: Mapped[str] = mapped_column(String(24), nullable=False)
     before: Mapped[dict | None] = mapped_column(JSON)
     after: Mapped[dict | None] = mapped_column(JSON)
@@ -419,14 +429,14 @@ class DailyClosing(Base):
     business_date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
     version: Mapped[int] = mapped_column(nullable=False)
     status: Mapped[DailyClosingStatus] = mapped_column(
-        Enum(DailyClosingStatus, native_enum=False, length=12), nullable=False
+        Enum(DailyClosingStatus, native_enum=False, length=12), nullable=False, index=True
     )
     totals: Mapped[dict] = mapped_column(JSON, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
     difference_notes: Mapped[str | None] = mapped_column(Text)
-    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     review_notes: Mapped[str | None] = mapped_column(Text)
 
@@ -476,7 +486,7 @@ class EligibleShareSetting(Base):
     month: Mapped[int] = mapped_column(primary_key=True)
     version: Mapped[int] = mapped_column(primary_key=True)
     total_shares: Mapped[int] = mapped_column(nullable=False)
-    confirmed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    confirmed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reason: Mapped[str | None] = mapped_column(Text)
 
@@ -501,7 +511,7 @@ class ReportingPeriod(Base):
     year: Mapped[int] = mapped_column(nullable=False)
     month: Mapped[int] = mapped_column(nullable=False)
     status: Mapped[ReportingPeriodStatus] = mapped_column(
-        Enum(ReportingPeriodStatus, native_enum=False, length=16), nullable=False
+        Enum(ReportingPeriodStatus, native_enum=False, length=16), nullable=False, index=True
     )
     version: Mapped[int] = mapped_column(nullable=False, default=1)
     review_note: Mapped[str | None] = mapped_column(Text)
@@ -524,7 +534,7 @@ class ReportChecklistItem(Base):
     key: Mapped[str] = mapped_column(String(48), nullable=False)
     label: Mapped[str] = mapped_column(String(160), nullable=False)
     is_done: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    done_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    done_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
     done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     note: Mapped[str | None] = mapped_column(Text)
 
@@ -547,7 +557,7 @@ class DistributionDecision(Base):
     pool_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     retained_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
-    decided_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    decided_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
@@ -567,7 +577,7 @@ class ReportSnapshot(Base):
     )
     version: Mapped[int] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    approved_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    approved_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     calculation_basis: Mapped[str] = mapped_column(Text, nullable=False)
     inputs: Mapped[dict] = mapped_column(JSON, nullable=False)
     totals: Mapped[dict] = mapped_column(JSON, nullable=False)
@@ -583,15 +593,15 @@ class ReportReopening(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     reporting_period_id: Mapped[int] = mapped_column(
-        ForeignKey("reporting_periods.id"), nullable=False
+        ForeignKey("reporting_periods.id"), nullable=False, index=True
     )
     previous_snapshot_id: Mapped[int] = mapped_column(
-        ForeignKey("report_snapshots.id"), nullable=False
+        ForeignKey("report_snapshots.id"), nullable=False, index=True
     )
     previous_version: Mapped[int] = mapped_column(nullable=False)
     new_version: Mapped[int] = mapped_column(nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
-    authorized_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    authorized_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 

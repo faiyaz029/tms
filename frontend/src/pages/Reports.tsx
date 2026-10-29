@@ -117,6 +117,14 @@ interface Shareholder {
   holdings: { id: number; shares: number; effective_from: string; effective_to: string | null }[];
 }
 
+interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+const SHAREHOLDER_PAGE_SIZE = 20;
 const businessMonth = () => new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Asia/Dhaka", year: "numeric", month: "2-digit",
 }).format(new Date()).slice(0, 7);
@@ -233,6 +241,8 @@ export default function Reports() {
   const [period, setPeriod] = useState(businessMonth);
   const [report, setReport] = useState<Report | null>(null);
   const [shareholders, setShareholders] = useState<Shareholder[]>([]);
+  const [shareholderPage, setShareholderPage] = useState(1);
+  const [shareholderTotal, setShareholderTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -258,12 +268,15 @@ export default function Reports() {
   const loadShareholders = useCallback(async () => {
     if (!canManageShareholders) return;
     try {
-      const result = await api<{ items: Shareholder[] }>("/shareholders");
+      const result = await api<PageResult<Shareholder>>(
+        `/shareholders?page=${shareholderPage}&size=${SHAREHOLDER_PAGE_SIZE}`,
+      );
       setShareholders(result.items);
+      setShareholderTotal(result.total);
     } catch (err) {
       setError((err as Error).message);
     }
-  }, [canManageShareholders]);
+  }, [canManageShareholders, shareholderPage]);
 
   const loadReport = useCallback(async () => {
     if (!/^\d{4}-\d{2}$/.test(period)) return;
@@ -585,6 +598,29 @@ export default function Reports() {
               ))}
             </ul>
           ) : <p className="text-sm">No shareholders are registered.</p>}
+          {shareholderTotal > SHAREHOLDER_PAGE_SIZE && (
+            <nav aria-label="Shareholder register pages" className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className="btn-o min-h-11"
+                disabled={shareholderPage <= 1}
+                onClick={() => setShareholderPage((page) => page - 1)}
+              >
+                Previous
+              </button>
+              <span className="text-sm">
+                Page {shareholderPage} of {Math.ceil(shareholderTotal / SHAREHOLDER_PAGE_SIZE)}
+              </span>
+              <button
+                type="button"
+                className="btn-o min-h-11"
+                disabled={shareholderPage >= Math.ceil(shareholderTotal / SHAREHOLDER_PAGE_SIZE)}
+                onClick={() => setShareholderPage((page) => page + 1)}
+              >
+                Next
+              </button>
+            </nav>
+          )}
         </section>
       )}
     </div>

@@ -53,4 +53,5 @@ def require_permission(perm: str):
             raise HTTPException(403, f"Your role cannot perform this action ({perm})")
         return user
 
+    setattr(dep, "required_permission", perm)
     return dep

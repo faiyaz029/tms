@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TypeVar
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ from ..services.reports import (
     add_shareholding, approve_report, approved_expenses_for_period,
     approved_reports_for_user, create_shareholder, my_shareholding,
     reopen_report, report_detail, set_distribution, shareholder_register,
-    submit_for_review, update_checklist, update_eligible_shares,
+    shareholder_output, submit_for_review, update_checklist, update_eligible_shares,
     update_shareholder,
 )
 
@@ -149,20 +149,24 @@ def reopen_monthly_report(
 
 @router.get("/reports/approved")
 def list_approved_reports(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
     actor: User = Depends(require_permission("report.view_approved")),
     db: Session = Depends(get_db),
 ):
-    return {"items": approved_reports_for_user(db, actor)}
+    return approved_reports_for_user(db, actor, page, size)
 
 
 @router.get("/reports/approved/{year}/{month}/expenses")
 def list_approved_expenses(
     year: int,
     month: int,
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
     _: User = Depends(require_permission("report.view_approved")),
     db: Session = Depends(get_db),
 ):
-    return {"items": approved_expenses_for_period(db, year, month)}
+    return approved_expenses_for_period(db, year, month, page, size)
 
 
 @router.get("/my/shareholding")
@@ -175,10 +179,12 @@ def get_my_shareholding(
 
 @router.get("/shareholders")
 def list_shareholders(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
     _: User = Depends(require_permission("shareholder.manage")),
     db: Session = Depends(get_db),
 ):
-    return {"items": shareholder_register(db)}
+    return shareholder_register(db, page, size)
 
 
 @router.post("/shareholders", status_code=201)
@@ -193,7 +199,7 @@ def add_shareholder(
             db, actor, **body.model_dump(),
         ),
     )
-    return next(row for row in shareholder_register(db) if row["id"] == holder.id)
+    return shareholder_output(db, holder)
 
 
 @router.patch("/shareholders/{shareholder_id}")
@@ -220,7 +226,7 @@ def edit_shareholder(
             body.reason,
         ),
     )
-    return next(row for row in shareholder_register(db) if row["id"] == updated.id)
+    return shareholder_output(db, updated)
 
 
 @router.post("/shareholders/{shareholder_id}/holdings", status_code=201)

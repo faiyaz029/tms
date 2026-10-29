@@ -237,6 +237,7 @@ def test_report_example_receipt_month_allocation_and_shareholder_privacy(client,
     shareholder_headers = _switch_user(client, owner_headers, first_holder_user.email)
     own_reports = client.get("/api/reports/approved", headers=shareholder_headers)
     assert own_reports.status_code == 200, own_reports.text
+    assert (own_reports.json()["total"], own_reports.json()["page"], own_reports.json()["size"]) == (1, 1, 20)
     own = own_reports.json()["items"][0]
     assert own["my_allocation"] == {
         "shareholder_id": first_holder["id"],
@@ -256,6 +257,7 @@ def test_report_example_receipt_month_allocation_and_shareholder_privacy(client,
         headers=shareholder_headers,
     )
     assert approved_expenses.status_code == 200
+    assert (approved_expenses.json()["total"], approved_expenses.json()["page"], approved_expenses.json()["size"]) == (1, 1, 20)
     assert approved_expenses.json()["items"] == [{
         "ref": expense.json()["ref"],
         "payment_date": "2025-10-31",
@@ -265,6 +267,12 @@ def test_report_example_receipt_month_allocation_and_shareholder_privacy(client,
         "method": "cash",
         "status": "approved",
     }]
+    empty_page = client.get(
+        "/api/reports/approved/2025/10/expenses?page=2&size=1",
+        headers=shareholder_headers,
+    )
+    assert empty_page.status_code == 200, empty_page.text
+    assert empty_page.json() == {"items": [], "total": 1, "page": 2, "size": 1}
     assert "vendor" not in approved_expenses.json()["items"][0]
     write_attempt = client.post("/api/distribution", headers=shareholder_headers, json={
         "year": 2025,

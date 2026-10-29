@@ -29,7 +29,12 @@ api.include_router(app_settings.router)
 
 @api.get("/health", tags=["meta"])
 def health():
-    return {"status": "ok", "currency": settings.currency, "timezone": settings.business_timezone}
+    return {
+        "status": "ok",
+        "currency": settings.currency,
+        "timezone": settings.business_timezone,
+        "app_env": settings.app_env,
+    }
 
 
 app.include_router(api)
