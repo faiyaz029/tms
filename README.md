@@ -1,18 +1,21 @@
 # Turf & Pool Manager
 
-FastAPI + PostgreSQL + React (TypeScript, Tailwind). This is **Phase 1: foundation**.
+FastAPI + PostgreSQL + React (TypeScript, Tailwind). Phases 1–3 are implemented.
 `demo/turf-pool-demo.html` is the clickable design reference for the finished system.
 
-## What works now (Phase 1)
+## What works now
 - Email/password registration and login, and Google login
 - Customers must have a valid Bangladeshi mobile number (`01XXXXXXXXX`) and an address; Google signups are sent to a "complete your profile" screen
 - Six roles with a central permission matrix (`backend/app/permissions.py`) enforced by the API
 - Staff, accountant, admin, shareholder and owner accounts are created by the owner (no public signup for those roles)
 - httpOnly cookie sessions with CSRF protection, login rate limiting, bcrypt hashing
-- Append-only audit log table, Alembic migration, 12 backend tests
-- Mobile-first app shell with role-based navigation (bottom bar on phones, sidebar on desktop)
+- Facility schedules, pool sessions, database-backed settings and availability
+- Online, phone and walk-in held bookings, contact lookup, hold extension/release, event history and customer booking privacy
+- Turf overlap protection with a PostgreSQL exclusion constraint; pool capacity serialized with row locks
+- Append-only audit log, Alembic migrations, PostgreSQL test database, customer and staff booking screens, timetable
 
-Pages for bookings, payments, expenses and reports are placeholders until their phases.
+Payment handling and booking confirmation are not implemented yet; they are part of Phase 4.
+Facility schedule, pricing and settings administration screens are also still pending.
 
 ## Run with Docker (recommended)
 ```bash
@@ -24,6 +27,10 @@ Open http://localhost:5173. API docs: http://localhost:8000/docs.
 Create the first owner (in another terminal):
 ```bash
 docker compose exec backend python -m app.cli create-owner --email you@example.com --name "Your Name"
+```
+Expire elapsed holds from a scheduled task or operator command:
+```bash
+docker compose exec backend python -m app.cli expire-holds
 ```
 Migrations run automatically on backend start. To run manually: `docker compose exec backend alembic upgrade head`.
 
@@ -52,6 +59,13 @@ cd backend && pytest
 cd frontend && npm run build   # type-checks the frontend
 ```
 
+PostgreSQL-specific booking concurrency tests:
+```bash
+docker compose up -d --wait db-test
+cd backend
+TEST_DATABASE_URL=postgresql+psycopg://turf:turf@localhost:5433/turfpool_test pytest
+```
+
 ## Google login setup
 1. Google Cloud Console → APIs & Services → Credentials → Create OAuth client ID → Web application.
 2. Add `http://localhost:5173` (and your real domain later) as an authorized JavaScript origin.
@@ -62,8 +76,8 @@ The format is validated (`01[3-9]XXXXXXXX`, `+880`/`880` prefixes accepted and n
 belongs to the person needs an SMS OTP provider, which is not included yet.
 
 ## Roadmap
-2. Facilities, schedules, pool sessions, booking horizon, availability
-3. Online, phone and walk-in bookings, holds, overbooking protection (PostgreSQL exclusion constraint)
+2. Facilities, schedules, pool sessions, booking horizon, availability (admin UI pending)
+3. Online, phone and walk-in bookings, holds, overbooking protection (implemented)
 4. Simulated and manual payments, verification
 5. Expenses with `EXP-` references, daily closing
 6. Shareholders and monthly reports with approval snapshots

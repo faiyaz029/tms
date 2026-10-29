@@ -13,6 +13,6 @@ export const NAV: Record<Role, NavItem[]> = {
   staff: [T, NEW, PAY, EXP],
   accountant: [PAY, EXP, REP, { path: "/audit", label: "Audit", phase: 1 }],
   admin: [T, NEW, PAY, EXP, REP],
-  owner: [T, PAY, EXP, REP, { path: "/users", label: "Users", phase: 1 }, { path: "/audit", label: "Audit", phase: 1 }],
+  owner: [T, NEW, PAY, EXP, REP, { path: "/users", label: "Users", phase: 1 }, { path: "/audit", label: "Audit", phase: 1 }],
   shareholder: [{ path: "/overview", label: "Overview", phase: 6 }, { path: "/statement", label: "My statement", phase: 7 }, T],
 };

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,13 @@ from ..permissions import require_permission
 from ..schemas import SettingUpdate
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+INTEGER_SETTING_RANGES = {
+    "booking_horizon_days": (0, 365),
+    "turf_slot_step_minutes": (1, 240),
+    "turf_duration_minutes": (1, 1440),
+    "hold_minutes_online": (1, 1440),
+    "hold_minutes_phone": (1, 1440),
+}
 
 
 @router.get("/public")
@@ -40,6 +47,14 @@ def list_settings(actor: User = Depends(require_permission("facility.configure")
 
 @router.post("")
 def upsert_setting(body: SettingUpdate, actor: User = Depends(require_permission("facility.configure")), db: Session = Depends(get_db)):
+    bounds = INTEGER_SETTING_RANGES.get(body.key)
+    if bounds:
+        try:
+            numeric_value = int(body.value)
+        except ValueError as exc:
+            raise HTTPException(422, f"{body.key} must be a whole number") from exc
+        if not bounds[0] <= numeric_value <= bounds[1]:
+            raise HTTPException(422, f"{body.key} must be between {bounds[0]} and {bounds[1]}")
     row = db.scalar(select(BusinessSetting).where(BusinessSetting.key == body.key))
     before = {"value": row.value} if row else None
     if row is None:

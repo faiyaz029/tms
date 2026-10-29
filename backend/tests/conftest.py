@@ -1,8 +1,10 @@
 import os
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -15,11 +17,33 @@ from app.security import hash_password
 TEST_URL = os.getenv("TEST_DATABASE_URL")
 
 
+@pytest.fixture(scope="session")
+def postgres_test_engine():
+    if not TEST_URL:
+        yield None
+        return
+    previous_url = os.environ.get("ALEMBIC_DATABASE_URL")
+    os.environ["ALEMBIC_DATABASE_URL"] = TEST_URL
+    try:
+        alembic_config = Config("alembic.ini")
+        command.upgrade(alembic_config, "head")
+    finally:
+        if previous_url is None:
+            os.environ.pop("ALEMBIC_DATABASE_URL", None)
+        else:
+            os.environ["ALEMBIC_DATABASE_URL"] = previous_url
+    engine = create_engine(TEST_URL, pool_pre_ping=True)
+    yield engine
+    engine.dispose()
+
+
 @pytest.fixture()
-def db():
-    if TEST_URL:
-        eng = create_engine(TEST_URL, pool_pre_ping=True)
-        Base.metadata.create_all(eng)
+def db(postgres_test_engine):
+    if postgres_test_engine:
+        eng = postgres_test_engine
+        table_names = ", ".join(f'"{table.name}"' for table in Base.metadata.sorted_tables)
+        with eng.begin() as conn:
+            conn.execute(text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE"))
         s = sessionmaker(bind=eng, expire_on_commit=False)()
     else:
         eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)

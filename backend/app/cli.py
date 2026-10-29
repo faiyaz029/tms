@@ -11,15 +11,23 @@ from .audit import record
 from .db import SessionLocal
 from .models import Role, User
 from .security import hash_password
+from .services.bookings import expire_holds
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("command", choices=["create-owner"])
-    p.add_argument("--email", required=True)
-    p.add_argument("--name", required=True)
+    p.add_argument("command", choices=["create-owner", "expire-holds"])
+    p.add_argument("--email")
+    p.add_argument("--name")
     p.add_argument("--password")
     a = p.parse_args()
+    if a.command == "expire-holds":
+        with SessionLocal() as db:
+            count = expire_holds(db)
+        print(f"Expired {count} booking hold(s).")
+        return
+    if not a.email or not a.name:
+        p.error("create-owner requires --email and --name")
     pw = a.password or getpass.getpass("Password (min 8 chars): ")
     if len(pw) < 8:
         sys.exit("Password must be at least 8 characters")

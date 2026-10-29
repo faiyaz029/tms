@@ -1,4 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from .models import Role
 from .security import normalize_bd_phone
@@ -70,3 +73,45 @@ class SettingUpdate(BaseModel):
     key: str = Field(min_length=1, max_length=80)
     value: str = Field(min_length=1, max_length=255)
     reason: str | None = Field(default=None, max_length=300)
+
+
+class BookingSelection(BaseModel):
+    facility_id: int = Field(gt=0)
+    starts_at: datetime | None = None
+    pool_session_id: int | None = Field(default=None, gt=0)
+    participants: int | None = Field(default=None, gt=0, le=100)
+    notes: str | None = Field(default=None, max_length=1000)
+
+    @model_validator(mode="after")
+    def _selection_shape(self):
+        turf_selection = self.starts_at is not None
+        pool_selection = self.pool_session_id is not None and self.participants is not None
+        if turf_selection == pool_selection:
+            raise ValueError("Provide either a turf start time or a pool session and participant count")
+        if self.pool_session_id is not None and self.participants is None:
+            raise ValueError("participants is required for a pool session")
+        if self.participants is not None and self.pool_session_id is None:
+            raise ValueError("pool_session_id is required when participants are provided")
+        if self.starts_at is not None and self.starts_at.tzinfo is None:
+            raise ValueError("starts_at must include a timezone")
+        return self
+
+
+class StaffBookingIn(BookingSelection):
+    channel: Literal["phone", "walk_in"]
+    customer_name: str = Field(min_length=2, max_length=120)
+    customer_phone: str
+    customer_address: str | None = Field(default=None, max_length=300)
+
+    @field_validator("customer_phone")
+    @classmethod
+    def _customer_phone(cls, value: str) -> str:
+        return normalize_bd_phone(value)
+
+
+class BookingActionIn(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class ExtendHoldIn(BookingActionIn):
+    minutes: int = Field(gt=0, le=1440)

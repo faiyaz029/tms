@@ -2,7 +2,10 @@ import enum
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Numeric, String, Text, Time, select
+from sqlalchemy import (
+    JSON, Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Index,
+    Numeric, String, Text, Time, UniqueConstraint, select,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -109,6 +112,9 @@ class Block(Base):
 
 class TurfPrice(Base):
     __tablename__ = "turf_prices"
+    __table_args__ = (
+        CheckConstraint("price >= 0", name="ck_turf_price_nonnegative"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
@@ -121,6 +127,10 @@ class TurfPrice(Base):
 
 class PoolSessionTemplate(Base):
     __tablename__ = "pool_session_templates"
+    __table_args__ = (
+        CheckConstraint("capacity > 0", name="ck_pool_template_capacity_positive"),
+        CheckConstraint("price_per_person >= 0", name="ck_pool_template_price_nonnegative"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
@@ -134,6 +144,11 @@ class PoolSessionTemplate(Base):
 
 class PoolSession(Base):
     __tablename__ = "pool_sessions"
+    __table_args__ = (
+        UniqueConstraint("facility_id", "date", "start_at", name="uq_pool_session_facility_date_start"),
+        CheckConstraint("capacity > 0", name="ck_pool_session_capacity_positive"),
+        CheckConstraint("price_per_person >= 0", name="ck_pool_session_price_nonnegative"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
@@ -142,6 +157,90 @@ class PoolSession(Base):
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     capacity: Mapped[int] = mapped_column(nullable=False)
     price_per_person: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+
+class CustomerContact(Base):
+    __tablename__ = "customer_contacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    address: Mapped[str | None] = mapped_column(Text)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), unique=True)
+
+
+class BookingChannel(str, enum.Enum):
+    online = "online"
+    phone = "phone"
+    walk_in = "walk_in"
+
+
+class BookingStatus(str, enum.Enum):
+    draft = "draft"
+    held = "held"
+    confirmed = "confirmed"
+    cancelled = "cancelled"
+    expired = "expired"
+
+
+class Booking(Base):
+    __tablename__ = "bookings"
+    __table_args__ = (
+        CheckConstraint(
+            "(starts_at IS NOT NULL AND ends_at IS NOT NULL AND pool_session_id IS NULL "
+            "AND participants IS NULL) OR "
+            "(starts_at IS NULL AND ends_at IS NULL AND pool_session_id IS NOT NULL "
+            "AND participants IS NOT NULL AND participants > 0)",
+            name="ck_booking_facility_details",
+        ),
+        CheckConstraint("participants IS NULL OR participants > 0", name="ck_booking_participants_positive"),
+        CheckConstraint("total_amount >= 0", name="ck_booking_total_nonnegative"),
+        Index(
+            "uq_bookings_ref",
+            "ref",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(20), nullable=False)
+    facility_id: Mapped[int] = mapped_column(ForeignKey("facilities.id"), nullable=False)
+    channel: Mapped[BookingChannel] = mapped_column(
+        Enum(BookingChannel, native_enum=False, length=12), nullable=False
+    )
+    status: Mapped[BookingStatus] = mapped_column(
+        Enum(BookingStatus, native_enum=False, length=12), nullable=False
+    )
+    customer_contact_id: Mapped[int] = mapped_column(
+        ForeignKey("customer_contacts.id"), nullable=False
+    )
+    created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    hold_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="BDT", nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pool_session_id: Mapped[int | None] = mapped_column(ForeignKey("pool_sessions.id"))
+    participants: Mapped[int | None] = mapped_column()
+
+
+class BookingEvent(Base):
+    __tablename__ = "booking_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id"), nullable=False, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    from_status: Mapped[BookingStatus | None] = mapped_column(
+        Enum(BookingStatus, native_enum=False, length=12)
+    )
+    to_status: Mapped[BookingStatus] = mapped_column(
+        Enum(BookingStatus, native_enum=False, length=12), nullable=False
+    )
+    reason: Mapped[str | None] = mapped_column(Text)
+    data: Mapped[dict | None] = mapped_column(JSON)
 
 
 class BusinessSetting(Base):
