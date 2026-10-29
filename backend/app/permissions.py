@@ -12,7 +12,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "audit.view": {O},
     # Facilities and bookings (Phases 2-3)
     "facility.configure": {O, A},
-    "timetable.view": {O, A, S, SH},
+    "timetable.view": {O, A, S, SH, C},
     "booking.create_self": {C},
     "booking.create_for_customer": {O, A, S},
     "booking.manage": {O, A, S},

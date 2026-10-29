@@ -64,3 +64,9 @@ class UserOut(BaseModel):
     is_active: bool
     profile_complete: bool
     permissions: list[str]
+
+
+class SettingUpdate(BaseModel):
+    key: str = Field(min_length=1, max_length=80)
+    value: str = Field(min_length=1, max_length=255)
+    reason: str | None = Field(default=None, max_length=300)

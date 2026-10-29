@@ -2,7 +2,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import auth, users
+from .routers import auth, availability, facilities, settings as app_settings, users
 
 app = FastAPI(title="Turf & Pool Manager API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin],
@@ -11,6 +11,9 @@ app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin],
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
 api.include_router(users.router)
+api.include_router(facilities.router)
+api.include_router(availability.router)
+api.include_router(app_settings.router)
 
 
 @api.get("/health", tags=["meta"])

@@ -12,7 +12,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen md:flex">
       <aside className="hidden w-56 shrink-0 bg-pitch-900 p-4 text-white md:block">
-        <h1 className="mb-6 text-lg font-bold">⚽🏊 Turf &amp; Pool</h1>
+        <h1 className="mb-6 text-lg font-bold"> Turf &amp; Pool</h1>
         <nav className="space-y-1">
           {items.map((i) => (
             <NavLink key={i.path} to={i.path}
@@ -24,7 +24,7 @@ export default function Layout() {
       </aside>
       <div className="flex-1 pb-20 md:pb-0">
         <header className="flex items-center gap-3 bg-pitch-900 px-4 py-3 text-white md:bg-transparent md:text-inherit">
-          <b className="flex-1 md:hidden">⚽🏊 Turf &amp; Pool</b>
+          <b className="flex-1 md:hidden">Turf &amp; Pool</b>
           <span className="hidden flex-1 text-sm text-slate-500 md:block dark:text-slate-400">Signed in as {user.full_name} ({user.role})</span>
           <button className="rounded-lg border border-white/40 px-3 py-2 text-sm md:border-slate-300" onClick={logout}>Sign out</button>
         </header>

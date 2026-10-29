@@ -7,7 +7,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
   return (
     <div className="mx-auto max-w-md p-4 pt-10">
       <div className="card space-y-4">
-        <h1 className="text-2xl font-bold">⚽🏊 {title}</h1>
+        <h1 className="text-2xl font-bold">{title}</h1>
         {children}
       </div>
     </div>

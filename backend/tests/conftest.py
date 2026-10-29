@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -10,13 +12,23 @@ from app.models import Role, User
 from app.security import hash_password
 
 
+TEST_URL = os.getenv("TEST_DATABASE_URL")
+
+
 @pytest.fixture()
 def db():
-    eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(eng)
-    s = sessionmaker(bind=eng, expire_on_commit=False)()
-    yield s
-    s.close()
+    if TEST_URL:
+        eng = create_engine(TEST_URL, pool_pre_ping=True)
+        Base.metadata.create_all(eng)
+        s = sessionmaker(bind=eng, expire_on_commit=False)()
+    else:
+        eng = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        Base.metadata.create_all(eng)
+        s = sessionmaker(bind=eng, expire_on_commit=False)()
+    try:
+        yield s
+    finally:
+        s.close()
 
 
 @pytest.fixture()
