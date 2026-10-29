@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .field { @apply w-full min-h-[44px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100; }
+  .btn { @apply min-h-[44px] rounded-lg bg-pitch-700 px-4 py-2 font-semibold text-white disabled:opacity-60; }
+  .btn-o { @apply min-h-[44px] rounded-lg border border-pitch-700 px-4 py-2 font-semibold text-pitch-700 dark:text-emerald-400 dark:border-emerald-400; }
+  .card { @apply rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800; }
+}
+body { @apply bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100; padding-top: env(safe-area-inset-top, 0px); }

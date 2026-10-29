@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Turf &amp; Pool Manager — Demo</title>
+<style>
+:root{--bg:#eef3ec;--cd:#fff;--tx:#15241b;--mu:#58685e;--ac:#14703f;--ax:#fff;--pl:#0b6fa8;--bd:#d3ddd1;--wa:#a35a00;--er:#b42318;--ok:#14703f;--hd:#0f3d26;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1511;--cd:#17211b;--tx:#e6efe8;--mu:#9bab9f;--ac:#45c586;--ax:#052112;--pl:#6bb8e8;--bd:#2a3a30;--wa:#f2b05a;--er:#ff8f80;--ok:#52d493;--hd:#0a1f15}}
+:root[data-theme="dark"]{--bg:#0e1511;--cd:#17211b;--tx:#e6efe8;--mu:#9bab9f;--ac:#45c586;--ax:#052112;--pl:#6bb8e8;--bd:#2a3a30;--wa:#f2b05a;--er:#ff8f80;--ok:#52d493;--hd:#0a1f15}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 "Avenir Next","Segoe UI",system-ui,sans-serif;padding-bottom:76px}
+header{background:var(--hd);color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header b{font-size:17px;flex:1;min-width:150px}header select{max-width:140px}
+main{max-width:860px;margin:0 auto;padding:12px}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--cd);border-top:1px solid var(--bd);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav button{flex:1;border:0;background:none;color:var(--mu);padding:12px 2px;font:inherit;font-size:13px;min-height:48px}
+nav button.on{color:var(--ac);font-weight:700;box-shadow:inset 0 3px var(--ac)}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:12px;margin:0 0 10px}
+h2{font-size:18px;margin:4px 0 10px}h3{font-size:15px;margin:0 0 6px}.mu{color:var(--mu)}small{font-size:12px}
+.btn{border:1px solid var(--ac);background:var(--ac);color:var(--ax);border-radius:8px;padding:10px 14px;font:inherit;font-weight:600;min-height:44px;cursor:pointer}
+.btn.o{background:none;color:var(--ac)}.btn.d{background:none;color:var(--er);border-color:var(--er)}.btn.s{padding:6px 10px;min-height:36px;font-size:13px}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit;min-height:44px}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 3px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>*{flex:1}.row.n>*{flex:none}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}.chip{flex:none;border:1px solid var(--bd);background:var(--cd);color:var(--tx);border-radius:20px;padding:8px 12px;font:inherit;font-size:13px;min-height:40px}
+.chip.on{background:var(--ac);color:var(--ax);border-color:var(--ac)}.chip:disabled{opacity:.45;text-decoration:line-through}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:6px}
+.slot{border:2px solid var(--bd);background:var(--cd);color:var(--tx);border-radius:8px;padding:8px 4px;font:inherit;font-size:13px;min-height:56px}
+.slot.free{border-color:var(--ac)}.slot.hld{border-style:dashed;border-color:var(--wa);color:var(--wa)}.slot.bkd{background:var(--bd);color:var(--mu)}.slot.blk{background:repeating-linear-gradient(45deg,var(--bd),var(--bd) 6px,transparent 6px,transparent 12px);color:var(--mu)}
+.bd{display:inline-block;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;border:1px solid currentColor}.ok{color:var(--ok)}.wa{color:var(--wa)}.er{color:var(--er)}.pl{color:var(--pl)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 4px;border-bottom:1px solid var(--bd);text-align:left}td.r,th.r{text-align:right}
+#modal{position:fixed;inset:0;background:#0008;display:none;align-items:flex-end;justify-content:center;z-index:9}#modal.on{display:flex}
+#modal>div{background:var(--cd);width:100%;max-width:520px;border-radius:14px 14px 0 0;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));max-height:90vh;overflow:auto}
+#toast{position:fixed;left:12px;right:12px;bottom:90px;background:var(--tx);color:var(--bg);padding:12px;border-radius:8px;display:none;z-index:10;text-align:center}
+.sim{border:2px dashed var(--wa);color:var(--wa);padding:8px;border-radius:8px;font-weight:700;margin-bottom:10px}
+.big{font-size:22px;font-weight:700}
+</style></head><body>
+<div id="app"></div><div id="modal" onclick="if(event.target===this)closeM()"><div id="mb"></div></div><div id="toast"></div>
+<script>
+const ds=i=>{const d=new Date(2026,9,29+i);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const TODAY=ds(0),M='2026-10',$=id=>document.getElementById(id),val=id=>$(id).value;
+const fmt=n=>'৳'+(Math.round(n*100)/100).toLocaleString('en-US');
+const hm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dl=i=>new Date(2026,9,29+i).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+const SESS=[['s1','07:00–08:00'],['s2','17:00–18:00'],['s3','19:00–20:00']];
+const SH=[['Rahim Uddin',20],['Karim Hossain',12],['Salma Akter',8],['Nusrat Jahan',6],['Developer (demo)',4]];
+const TOT=SH.reduce((a,s)=>a+s[1],0);
+let uid=100;const nid=()=>++uid;
+const S={role:'login',user:null,tab:'',fac:'turf',date:TODAY,q:'',cfg:{horizon:21,turf:2000,pool:200,cap:30,online:10,phone:30},bk:[],pay:[],exp:[],audit:[],mail:[],rep:{stage:'prelim',pool:null,close:false,snap:null}};
+const TABS={customer:['book','mine'],staff:['table','newb','pay','exp'],accountant:['pay','exp','rep','aud'],owner:['table','pay','exp','rep','set','aud'],shareholder:['sov','sst','table']};
+const LB={book:'Book',mine:'My bookings',table:'Timetable',newb:'New booking',pay:'Payments',exp:'Expenses',rep:'Report',set:'Settings',aud:'Audit',sov:'Overview',sst:'My statement'};
+const P={book:['staff','owner'],recPay:['staff','accountant','owner'],verify:['accountant','owner'],addExp:['staff','accountant','owner'],apprExp:['accountant','owner'],review:['accountant','owner'],final:['owner'],settings:['owner']};
+const log=a=>S.audit.unshift({t:new Date().toLocaleTimeString('en-GB'),who:S.role,a});
+const guard=a=>{if(!P[a].includes(S.role)){toast('403 Forbidden: '+S.role+' is not allowed ('+a+')');log('DENIED '+a);return false}return true};
+const active=b=>b.status==='confirmed'||(b.status==='held'&&b.holdUntil>Date.now());
+const ov=(b,date,s,e)=>b.fac==='turf'&&b.date===date&&active(b)&&s<b.end&&e>b.start;
+const free=(date,s,e,ig)=>!S.bk.some(b=>b.id!==ig&&ov(b,date,s,e));
+const left=(date,ss)=>S.cfg.cap-S.bk.filter(b=>b.fac==='pool'&&b.date===date&&b.sess===ss&&active(b)).reduce((a,b)=>a+b.n,0);
+const paid=b=>S.pay.filter(p=>p.bk===b.id&&p.status==='verified').reduce((a,p)=>a+p.amt,0);
+const mins=b=>Math.max(0,Math.ceil((b.holdUntil-Date.now())/60000));
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3200)}
+function modal(h){$('mb').innerHTML=h;$('modal').classList.add('on')}function closeM(){$('modal').classList.remove('on')}
+function addPay(b,amt,method,trx,st,recv){const p={id:nid(),bk:b?b.id:null,amt:+amt,method,status:st||'received',recv:recv||TODAY,trx,by:S.role};p.ref='PAY-'+(1000+p.id);S.pay.push(p);return p}
+function addExp(o){const e={id:nid(),st:'pending',by:S.role,date:TODAY,...o};e.ref='EXP-'+e.date.slice(2).replace(/-/g,'')+'-'+String(S.exp.length+1).padStart(4,'0');S.exp.push(e);return e}
+function seed(){
+ const b=o=>{const x={id:nid(),status:'confirmed',total:0,chan:'online',cust:'Online customer',...o};x.ref='BK-'+(1000+x.id);S.bk.push(x);return x};
+ b({fac:'turf',date:TODAY,start:1080,end:1140,total:2000,chan:'phone',cust:'Tanvir (01711000111)'});
+ b({fac:'turf',date:TODAY,start:1140,end:1200,total:2000,chan:'walk-in',cust:'Walk-in guest (01811000222)'});
+ b({fac:'turf',date:ds(2),start:720,end:840,chan:'block',cust:'Maintenance'});
+ b({fac:'pool',date:ds(1),sess:'s2',n:28,total:5600,cust:'Group booking'});
+ const h=b({fac:'turf',date:ds(1),start:600,end:660,total:2000,status:'held',chan:'phone',cust:'Mitu (01911000333)',holdUntil:Date.now()+30*6e4});
+ addPay(h,2000,'bKash','8K3XQ91A','received');
+ [[300000,'Cash'],[200000,'bKash'],[100000,'Bank transfer']].forEach(x=>addPay(null,x[0],x[1],'','verified','2026-10-15'));
+ addPay(null,5000,'bKash','','verified','2026-09-30');
+ [['Electricity','October electricity bill',120000,'Bank transfer','approved'],['Maintenance','Turf grass and lights repair',80000,'Cash','approved'],['Salary','Staff salaries',100000,'Bank transfer','approved'],['Supplies','Pool chemicals',50000,'Cash','approved'],['Cleaning','Deep cleaning service',15000,'Cash','pending']].forEach(x=>addExp({cat:x[0],desc:x[1],amt:x[2],method:x[3],st:x[4],vendor:'',memo:'',trx:'',by:'staff',date:'2026-10-2'+(S.exp.length%8)}));
+ S.audit=[];log('Demo data loaded (not real records)');
+}
+function mk(o,chan,cust,hold){
+ const c=S.cfg,di=(new Date(o.date)-new Date(TODAY))/864e5;let total;
+ if(di<0||di>c.horizon)return{err:'Date is outside the booking horizon ('+c.horizon+' days)'};
+ if(o.fac==='turf'){if(o.start<360||o.start+60>1320)return{err:'Outside operating hours (06:00–22:00)'};o.end=o.start+60;if(!free(o.date,o.start,o.end))return{err:'Conflict: that turf time is no longer available'};total=c.turf}
+ else{if(!(o.n>=1))return{err:'Enter at least 1 participant'};const l=left(o.date,o.sess);if(o.n>l)return{err:'Rejected: only '+l+' places left'};total=o.n*c.pool}
+ const b={id:nid(),status:'held',holdUntil:Date.now()+hold*6e4,total,chan,cust,mine:S.role==='customer',...o};b.ref='BK-'+(1000+b.id);S.bk.push(b);log('Hold created '+b.ref+' ('+chan+') '+fmt(total));return{b}}
+function tryConfirm(b){if(b.status!=='held'&&b.status!=='expired')return;if(paid(b)<b.total)return;if(!active(b)){toast('Payment verified, but the hold expired. Extend the hold to confirm.');return}b.status='confirmed';log('Booking confirmed '+b.ref+' (full payment verified)')}
+/* ---------- views ---------- */
+const ok=()=>S.user&&S.user.phone&&S.user.addr;
+function dChips(){let h='<div class="chips">';for(let i=0;i<=S.cfg.horizon+2;i++){const d=ds(i);h+=`<button class="chip ${d===S.date?'on':''}" ${i>S.cfg.horizon?'disabled title="Outside booking horizon"':''} onclick="S.date='${d}';render()">${dl(i)}</button>`}return h+'</div>'}
+const facT=()=>`<div class="row"><button class="chip ${S.fac==='turf'?'on':''}" onclick="S.fac='turf';render()">⚽ Football turf</button><button class="chip ${S.fac==='pool'?'on':''}" onclick="S.fac='pool';render()">🏊 Swimming pool</button></div>`;
+function cell(s,act){const e=s+60,c=S.bk.filter(b=>ov(b,S.date,s,e));let k='free',l='✓ Free';
+ if(c.length){if(c.some(b=>b.chan==='block')){k='blk';l='⛔ Blocked'}else if(c.some(b=>b.status==='confirmed')){k='bkd';l='● Booked'}else{k='hld';l='⏳ Held'}}
+ const nm=(S.role==='staff'||S.role==='owner')&&c[0]&&c[0].chan!=='block'?'<br><small>'+esc(c[0].cust.split(' (')[0])+'</small>':'';
+ return `<button class="slot ${k}" ${k==='free'&&act?`onclick="pickT(${s})"`:'disabled'}>${hm(s)}–${hm(e)}<br><small>${l}</small>${nm}</button>`}
+function turfG(act){let h='<div class="grid">';for(let s=360;s<=1260;s+=30)h+=cell(s,act);return h+'</div><p class="mu"><small>60-minute bookings, a new start every 30 minutes. Overlaps are rejected.</small></p>'}
+function poolL(act){return SESS.map(([id,t])=>{const l=left(S.date,id);return `<div class="card"><div class="row"><div><h3>${t}</h3><span class="bd ${l?'ok':'er'}">${l?l+' of '+S.cfg.cap+' places left':'Full'}</span></div>${act&&l?`<div class="row n"><input id="pn_${id}" type="number" min="1" max="${l}" value="1" style="width:76px"><button class="btn" onclick="pickP('${id}')">Book</button></div>`:''}</div></div>`}).join('')}
+function profileV(){const u=S.user;return `<div class="card"><h2>Complete your profile</h2><p class="mu">Signed in with Google as ${esc(u.name)}. A valid phone number and address are required before booking.</p><label>Full name</label><input id="pf_n" value="${esc(u.name)}"><label>Mobile number</label><input id="pf_p" inputmode="tel" placeholder="01XXXXXXXXX" value="${esc(u.phone)}"><label>Address</label><textarea id="pf_a" rows="2">${esc(u.addr)}</textarea><p></p><button class="btn" onclick="saveP()">Save and continue</button></div>`}
+function saveP(){const p=val('pf_p').trim(),a=val('pf_a').trim();if(!/^01[3-9]\d{8}$/.test(p)){toast('Enter a valid Bangladeshi mobile number: 01XXXXXXXXX');return}if(a.length<8){toast('Enter your full address');return}Object.assign(S.user,{name:val('pf_n').trim()||S.user.name,phone:p,addr:a});toast('Profile saved');render()}
+const V={
+book(){if(!ok())return profileV();return '<h2>Book a time</h2>'+facT()+dChips()+(S.fac==='turf'?turfG(true):poolL(true))},
+table(){return '<h2>Timetable'+(S.role==='shareholder'?' (read-only)':'')+'</h2>'+facT()+dChips()+(S.fac==='turf'?turfG(false):poolL(false))},
+mine(){const l=S.bk.filter(b=>b.mine);return '<h2>My bookings</h2>'+(l.length?l.map(bkCard).join(''):'<div class="card mu">No bookings yet. Book a turf time or pool places.</div>')},
+newb(){const opts=S.fac==='turf'?(()=>{let o='';for(let s=360;s<=1260;s+=30)if(free(S.date,s,s+60))o+=`<option value="${s}">${hm(s)}–${hm(s+60)}</option>`;return o})():SESS.map(([id,t])=>`<option value="${id}">${t} (${left(S.date,id)} left)</option>`).join('');
+ return `<h2>New phone or walk-in booking</h2><div class="card">${facT()}${dChips()}<label>Channel</label><select id="nch"><option value="phone">Phone (pay later, 30 min hold)</option><option value="walk-in">Walk-in (payment received now)</option></select><label>Time or session</label><select id="nslot">${opts}</select>${S.fac==='pool'?'<label>Participants</label><input id="nn" type="number" min="1" value="1">':''}<label>Customer name</label><input id="nname"><label>Customer phone</label><input id="nphone" inputmode="tel" placeholder="01XXXXXXXXX"><label>Walk-in payment method</label><select id="nm"><option>Cash</option><option>bKash</option><option>Bank transfer</option><option>Card</option></select><p></p><button class="btn" onclick="staffBook()">Create booking</button></div>`},
+pay(){const aw=S.bk.filter(b=>(b.status==='held'||b.status==='expired')&&b.chan!=='block'),rc=S.pay.filter(p=>p.status==='received'),lg=S.pay.filter(p=>p.bk).slice(-8).reverse();
+ return `<h2>Payments</h2><h3>Bookings awaiting full payment</h3>${aw.map(b=>`<div class="card"><b>${b.ref}</b> ${esc(b.cust)}<br>${descB(b)} · Total ${fmt(b.total)} · Verified ${fmt(paid(b))}<br><span class="bd ${b.status==='held'?'wa':'er'}">${b.status==='held'?'⏳ Hold: '+mins(b)+' min left':'Expired'}</span><div class="row n" style="margin-top:8px"><button class="btn s" onclick="recM(${b.id})">Record payment</button><button class="btn s o" onclick="extend(${b.id})">Extend hold</button><button class="btn s d" onclick="release(${b.id})">Release</button></div></div>`).join('')||'<div class="card mu">Nothing waiting.</div>'}
+ <h3>Received, awaiting verification</h3>${rc.map(p=>`<div class="card"><b>${p.ref}</b> ${fmt(p.amt)} via ${p.method}${p.trx?' · Trx '+esc(p.trx):''}<br><small class="mu">Received ${p.recv} · Entered by ${p.by}. A reference number alone is not proof of payment.</small><div class="row n" style="margin-top:8px"><button class="btn s" onclick="verify(${p.id},1)">Verify received</button><button class="btn s d" onclick="verify(${p.id},0)">Reject</button></div></div>`).join('')||'<div class="card mu">No payments to verify.</div>'}
+ <h3>Recent ledger</h3><div class="card"><table>${lg.map(p=>`<tr><td>${p.ref}</td><td>${p.method}</td><td class="r">${fmt(p.amt)}</td><td><span class="bd ${p.status==='verified'?'ok':p.status==='received'?'wa':'er'}">${p.status}</span></td></tr>`).join('')}</table></div>`},
+exp(){const q=S.q.toLowerCase(),l=S.exp.filter(e=>!q||Object.values(e).join(' ').toLowerCase().includes(q)).slice().reverse();
+ return `<h2>Expenses</h2><div class="card"><h3>Add expense</h3><div class="row"><div><label>Category</label><select id="ec"><option>Electricity</option><option>Cleaning</option><option>Maintenance</option><option>Supplies</option><option>Salary</option><option>Other</option></select></div><div><label>Amount (৳)</label><input id="ea" type="number" min="1" inputmode="decimal"></div></div><label>Description</label><input id="ed"><div class="row"><div><label>Method</label><select id="em"><option>Cash</option><option>bKash</option><option>Bank transfer</option></select></div><div><label>Vendor</label><input id="ev"></div></div><div class="row"><div><label>Memo no. (optional)</label><input id="eo"></div><div><label>Transaction ID (optional)</label><input id="et"></div></div><p></p><button class="btn" onclick="saveE()">Save expense</button></div>
+ <label>Search by reference, memo, vendor, amount, category, status…</label><input value="${esc(S.q)}" oninput="S.q=this.value;render();const i=document.querySelector('main input[oninput]');i.focus();i.setSelectionRange(99,99)" placeholder="e.g. EXP-261029"><p></p>
+ ${l.map(e=>`<div class="card"><b>${e.ref}</b> <span class="bd ${e.st==='approved'?'ok':e.st==='pending'?'wa':'er'}">${e.st==='approved'?'✓ Approved':e.st==='pending'?'⏳ Pending':'✕ Rejected'}</span><br>${e.cat}: ${esc(e.desc)} · <b>${fmt(e.amt)}</b> · ${e.method}<br><small class="mu">${e.date} · entered by ${e.by}${e.memo?' · memo '+esc(e.memo):''}${e.trx?' · trx '+esc(e.trx):''}</small>${e.st==='pending'?`<div class="row n" style="margin-top:8px"><button class="btn s" onclick="apprE(${e.id},1)">Approve</button><button class="btn s d" onclick="apprE(${e.id},0)">Reject</button></div>`:''}</div>`).join('')||'<div class="card mu">No expenses match.</div>'}`},
+rep(){const r=S.rep.snap||R(),fin=S.rep.stage==='final',st={prelim:['Preliminary — Not Yet Reviewed','wa'],review:['Under Review','pl'],final:['Approved / Final','ok']}[S.rep.stage],rows=r.rows;
+ return `<h2>October 2026 report</h2><div class="card"><span class="bd ${st[1]}">${st[0]}</span><p class="mu"><small>Basis: cash received in the month (payment receipt date), not booking date. Management estimate, not audited accounts or a guaranteed dividend.</small></p>
+ <table><tr><td>Verified collections</td><td class="r">${fmt(r.coll)}</td></tr>${Object.keys(r.by).map(k=>`<tr><td class="mu">&nbsp;&nbsp;${k}</td><td class="r mu">${fmt(r.by[k])}</td></tr>`).join('')}<tr><td>Approved expenses</td><td class="r">− ${fmt(r.ea)}</td></tr><tr><td><b>Operating result</b></td><td class="r"><b>${fmt(r.res)}</b></td></tr><tr><td class="wa">Pending expenses (excluded)</td><td class="r wa">${fmt(r.ep)}</td></tr><tr><td class="wa">Payments awaiting verification (excluded)</td><td class="r wa">${r.pp}</td></tr></table></div>
+ <div class="card"><h3>Distribution pool</h3><input type="number" ${fin?'disabled':''} value="${r.pool}" onchange="setPool(this.value)"><p class="mu"><small>Can differ from the result (reserves, retained funds). Amount per share = pool ÷ ${TOT} total shares.</small></p><table>${rows.map(x=>`<tr><td>${x.n} <small class="mu">(${x.s} shares)</small></td><td class="r">${fmt(x.a)}</td></tr>`).join('')}<tr><td>Rounding remainder (retained)</td><td class="r">${fmt(r.rem)}</td></tr><tr><td><b>${fmt(r.per)} per share</b></td><td class="r"><b>${fmt(r.pool)}</b></td></tr></table></div>
+ ${fin?`<div class="card"><h3>Statements (development preview, not really emailed)</h3>${S.mail.map((m,i)=>`<div class="row"><span>${esc(m.to)}</span><span class="bd ${m.st==='failed'?'er':'pl'}">${m.st==='failed'?'✕ Delivery failed':'Previewed'}</span>${m.st==='failed'?`<button class="btn s" onclick="retry(${i})">Retry</button>`:''}</div>`).join('')}<p class="mu"><small>A failed email never reverses the approval.</small></p></div>`:`<div class="card"><h3>Review checklist</h3><p>${r.pp?'✕':'✓'} All received payments verified<br>${r.epn?'✕':'✓'} No pending expenses<br>${S.rep.close?'✓':'✕'} Daily closings reviewed <input type="checkbox" ${S.rep.close?'checked':''} onchange="S.rep.close=this.checked;render()" style="width:auto;min-height:0"><br>✓ Shares total ${TOT}</p><div class="row n"><button class="btn o" onclick="toReview()">Send to review</button><button class="btn" onclick="finalize()">Approve final (owner)</button></div></div>`}`},
+set(){const c=S.cfg,f=(k,l)=>`<label>${l}</label><input type="number" min="1" value="${c[k]}" onchange="setC('${k}',this.value)">`;
+ return `<h2>Settings</h2><div class="card">${f('horizon','Booking horizon (days ahead)')}${f('turf','Turf price per 60 min (৳)')}${f('pool','Pool price per person (৳)')}${f('cap','Pool session capacity')}${f('online','Online hold (minutes)')}${f('phone','Phone hold (minutes)')}<p class="mu"><small>Changes apply immediately, with no code change.</small></p></div><div class="card"><h3>Share register (${TOT} shares)</h3><table>${SH.map(s=>`<tr><td>${s[0]}</td><td class="r">${s[1]}</td></tr>`).join('')}</table></div>`},
+aud(){return '<h2>Audit log</h2><div class="card"><table>'+S.audit.map(a=>`<tr><td>${a.t}</td><td>${a.who}</td><td>${esc(a.a)}</td></tr>`).join('')+'</table></div>'},
+sov(){const f=S.rep.snap;if(!f)return `<h2>Overview</h2><div class="card">No approved report yet. Preliminary figures are hidden from shareholders.</div><button class="btn d" onclick="tryEdit()">Try to edit an expense</button>`;
+ return `<h2>Overview</h2><div class="card"><span class="bd ok">Approved / Final</span><table><tr><td>Collections</td><td class="r">${fmt(f.coll)}</td></tr><tr><td>Approved expenses</td><td class="r">${fmt(f.ea)}</td></tr><tr><td>Operating result</td><td class="r">${fmt(f.res)}</td></tr><tr><td>Distribution pool</td><td class="r">${fmt(f.pool)}</td></tr><tr><td>Per share</td><td class="r">${fmt(f.per)}</td></tr></table></div><h3>Approved expenses</h3><div class="card"><table>${S.exp.filter(e=>e.st==='approved').map(e=>`<tr><td>${e.ref}</td><td>${e.cat}</td><td class="r">${fmt(e.amt)}</td></tr>`).join('')}</table></div><button class="btn d" onclick="tryEdit()">Try to edit an expense</button>`},
+sst(){const f=S.rep.snap;if(!f)return '<h2>My statement</h2><div class="card">Statements appear after the owner approves the monthly report.</div>';const m=f.rows[0];
+ return `<h2>Statement: October 2026</h2><div class="card"><p><b>${m.n}</b> · ${m.s} of ${TOT} shares</p><table><tr><td>Distribution pool</td><td class="r">${fmt(f.pool)}</td></tr><tr><td>Amount per share</td><td class="r">${fmt(f.per)}</td></tr><tr><td><b>Calculated allocation</b></td><td class="r"><b>${fmt(m.a)}</b></td></tr></table><p class="mu"><small>This is a calculated allocation. It does not mean money has been paid. Payout status: not recorded.</small></p></div>`}};
+function descB(b){return b.fac==='turf'?'Turf '+b.date+' '+hm(b.start)+'–'+hm(b.end):'Pool '+b.date+' '+SESS.find(s=>s[0]===b.sess)[1]+' × '+b.n}
+function bkCard(b){const p=S.pay.find(p=>p.bk===b.id&&p.status==='verified');return `<div class="card"><b>${b.ref}</b> <span class="bd ${b.status==='confirmed'?'ok':b.status==='held'?'wa':'er'}">${b.status==='confirmed'?'✓ Confirmed':b.status==='held'?'⏳ Pending payment':b.status==='expired'?'Expired':'✕ Cancelled'}</span><br>${descB(b)}<br>${fmt(b.total)}${p?' · Receipt '+p.ref+' <small class="mu">(simulated payment)</small>':''}</div>`}
+function R(){const v=S.pay.filter(p=>p.status==='verified'&&p.recv.startsWith(M)),by={};v.forEach(p=>by[p.method]=(by[p.method]||0)+p.amt);
+ const coll=v.reduce((a,p)=>a+p.amt,0),ea=S.exp.filter(e=>e.st==='approved'&&e.date.startsWith(M)).reduce((a,e)=>a+e.amt,0),pe=S.exp.filter(e=>e.st==='pending'),res=coll-ea,pool=S.rep.pool==null?res:S.rep.pool,pp=Math.round(pool*100),per=Math.floor(pp/TOT);
+ return{coll,by,ea,ep:pe.reduce((a,e)=>a+e.amt,0),epn:pe.length,pp:S.pay.filter(p=>p.status==='received').length,res,pool,per:per/100,rem:(pp-per*TOT)/100,rows:SH.map(([n,s])=>({n,s,a:per*s/100}))}}
+/* ---------- actions ---------- */
+function pickT(s){if(S.role!=='customer')return;ck({fac:'turf',date:S.date,start:s},'Turf '+dl(Math.round((new Date(S.date)-new Date(TODAY))/864e5))+', '+hm(s)+'–'+hm(s+60),'1 hour × '+fmt(S.cfg.turf),S.cfg.turf)}
+function pickP(id){const n=+val('pn_'+id);if(!(n>=1)){toast('Enter at least 1 participant');return}ck({fac:'pool',date:S.date,sess:id,n},'Pool session '+SESS.find(s=>s[0]===id)[1],n+' × '+fmt(S.cfg.pool),n*S.cfg.pool)}
+function ck(o,t,br,tot){S.ck=o;modal(`<h2>Review your booking</h2><p><b>${t}</b></p><div class="card">${br}<div class="big">Total ${fmt(tot)}</div></div><p class="mu"><small>The slot is held for ${S.cfg.online} minutes while you pay. The booking is confirmed only after payment succeeds.</small></p><div class="row"><button class="btn o" onclick="closeM()">Back</button><button class="btn" onclick="startPay()">Hold and pay</button></div>`)}
+function startPay(){const r=mk({...S.ck},'online',S.user.name,S.cfg.online);if(r.err){toast(r.err);closeM();render();return}const b=r.b;
+ modal(`<div class="sim">SIMULATED PAYMENT — no real money moves.</div><h2>Pay ${fmt(b.total)}</h2><p>${descB(b)}<br><small class="mu">Hold ${b.ref} expires in ${S.cfg.online} min</small></p><div class="row"><button class="btn" onclick="payRes(${b.id},'ok')">Simulate success</button></div><p></p><div class="row"><button class="btn d" onclick="payRes(${b.id},'fail')">Simulate failure</button><button class="btn o" onclick="payRes(${b.id},'ab')">Abandon</button></div>`)}
+function payRes(id,r){const b=S.bk.find(x=>x.id===id);closeM();
+ if(r==='ok'){if(b.status!=='held'||!active(b)){toast('Hold expired. Nothing was charged.');render();return}const p=addPay(b,b.total,'Online (simulated)','SIM'+b.id,'verified');b.status='confirmed';log('Simulated payment success, booking '+b.ref+' confirmed');toast('Payment successful. Booking '+b.ref+' confirmed.')}
+ else if(r==='fail'){b.status='cancelled';addPay(b,0.01,'Online (simulated)','','failed');S.pay.pop();log('Simulated payment failed, hold released '+b.ref);toast('Payment failed. Hold released, slot is free again.')}
+ else{log('Payment abandoned '+b.ref);toast('Abandoned. The hold releases automatically when it expires.')}
+ S.tab='mine';render()}
+function staffBook(){if(!guard('book'))return;const ch=val('nch'),nm=val('nname').trim(),ph=val('nphone').trim();
+ if(!nm||!/^01[3-9]\d{8}$/.test(ph)){toast('Enter customer name and a valid phone (01XXXXXXXXX)');return}
+ const o=S.fac==='turf'?{fac:'turf',date:S.date,start:+val('nslot')}:{fac:'pool',date:S.date,sess:val('nslot'),n:+val('nn')};
+ const r=mk(o,ch,nm+' ('+ph+')',S.cfg.phone);if(r.err){toast(r.err);render();return}
+ if(ch==='walk-in'){addPay(r.b,r.b.total,val('nm'),'');toast(r.b.ref+' created. Payment recorded, awaiting verification.')}else toast(r.b.ref+' held for '+S.cfg.phone+' min. Share payment instructions.');
+ S.tab='pay';render()}
+function recM(id){const b=S.bk.find(x=>x.id===id);modal(`<h2>Record payment for ${b.ref}</h2><label>Amount received (৳)</label><input id="ra" type="number" value="${b.total-paid(b)}"><label>Method</label><select id="rm"><option>bKash</option><option>Cash</option><option>Bank transfer</option><option>Other</option></select><label>Transaction ID</label><input id="rt"><p></p><button class="btn" onclick="recPay(${id})">Save as received</button>`)}
+function recPay(id){if(!guard('recPay'))return;const b=S.bk.find(x=>x.id===id),a=+val('ra'),t=val('rt').trim();
+ if(!(a>0)||a>b.total-paid(b)){toast('Invalid amount for this booking');return}
+ if(t&&S.pay.some(p=>p.trx===t)){toast('Duplicate transaction ID: already recorded');return}
+ const p=addPay(b,a,val('rm'),t);log('Payment recorded '+p.ref+' '+fmt(a)+' (unverified)');closeM();toast('Recorded. A verifier must confirm receipt.');render()}
+function verify(id,yes){if(!guard('verify'))return;const p=S.pay.find(x=>x.id===id);p.status=yes?'verified':'rejected';p.vby=S.role;log((yes?'Payment verified ':'Payment rejected ')+p.ref);if(yes){const b=S.bk.find(x=>x.id===p.bk);b&&tryConfirm(b)}render()}
+function extend(id){if(!guard('recPay'))return;const b=S.bk.find(x=>x.id===id);if(b.status==='expired'&&!(b.fac==='turf'?free(b.date,b.start,b.end,b.id):b.n<=left(b.date,b.sess))){toast('Cannot extend: capacity was taken meanwhile');return}b.status='held';b.holdUntil=Date.now()+S.cfg.phone*6e4;log('Hold extended '+b.ref);render()}
+function release(id){if(!guard('recPay'))return;const b=S.bk.find(x=>x.id===id);b.status='cancelled';log('Hold released '+b.ref);render()}
+function saveE(){if(!guard('addExp'))return;const a=+val('ea'),d=val('ed').trim();if(!(a>0)||!d){toast('Enter a description and a positive amount');return}
+ const e=addExp({cat:val('ec'),desc:d,amt:a,method:val('em'),vendor:val('ev'),memo:val('eo'),trx:val('et')});log('Expense entered '+e.ref+' '+fmt(a)+' (pending)');S.q=e.ref;toast('Saved as '+e.ref+'. Write this on the paper memo.');render()}
+function apprE(id,yes){if(!guard('apprExp'))return;const e=S.exp.find(x=>x.id===id);if(e.by===S.role){toast('You cannot approve an expense you entered yourself');return}e.st=yes?'approved':'rejected';log('Expense '+(yes?'approved ':'rejected ')+e.ref);render()}
+function setPool(v){if(!guard('review'))return;S.rep.pool=+v;log('Distribution pool set to '+fmt(+v));render()}
+function toReview(){if(!guard('review'))return;S.rep.stage='review';log('Report sent to review');render()}
+function finalize(){if(!guard('final'))return;const r=R(),bad=[];if(r.pp)bad.push('unverified payments');if(r.epn)bad.push('pending expenses');if(!S.rep.close)bad.push('daily closing not reviewed');
+ if(bad.length){toast('Blocked: '+bad.join(', '));return}S.rep.snap=JSON.parse(JSON.stringify(r));S.rep.stage='final';S.mail=SH.map((s,i)=>({to:s[0],st:i===2?'failed':'previewed'}));log('Report approved. Snapshot saved, statements generated');render()}
+function retry(i){S.mail[i].st='previewed';log('Email retry for '+S.mail[i].to);render()}
+function setC(k,v){if(!guard('settings'))return;S.cfg[k]=Math.max(1,+v);log('Setting '+k+' = '+v);render()}
+function tryEdit(){toast('403 Forbidden: shareholders have read-only access');log('DENIED shareholder edit attempt')}
+function setRole(r){S.role=r;S.tab='';if(r==='customer'&&!S.user)S.user={name:'Demo Customer',email:'',phone:'',addr:''};render()}
+function google(){S.user={name:'Demo Customer',email:'demo@gmail.com',phone:'',addr:''};setRole('customer')}
+function render(){
+ S.bk.forEach(b=>{if(b.status==='held'&&b.holdUntil<=Date.now()){b.status='expired';log('Hold expired '+b.ref)}});
+ const A=$('app');
+ if(S.role==='login'){A.innerHTML=`<main><div class="card" style="margin-top:8vh"><h2 style="font-size:24px">⚽🏊 Turf &amp; Pool Manager</h2><p class="mu">Interactive demo. Everything runs in this tab and resets on reload. Payments are simulated and the data is sample data.</p><button class="btn" style="width:100%" onclick="google()">Continue with Google (demo)</button><p class="mu"><small>Customers sign up with Google or email and must give a phone and address. Staff, accountant, owner and shareholder accounts are created by the owner.</small></p><p>Explore as:</p><div class="chips">${['staff','accountant','owner','shareholder'].map(r=>`<button class="chip" onclick="setRole('${r}')">${r}</button>`).join('')}</div></div></main>`;return}
+ const t=TABS[S.role];if(!t.includes(S.tab))S.tab=t[0];
+ A.innerHTML=`<header><b>⚽🏊 Turf &amp; Pool</b><span class="bd" style="color:#ffd27a">DEMO</span><select onchange="setRole(this.value)" aria-label="Switch role">${['customer','staff','accountant','owner','shareholder'].map(r=>`<option ${r===S.role?'selected':''}>${r}</option>`).join('')}</select><button class="chip" onclick="S.role='login';render()">Sign out</button></header><main>${V[S.tab]()}</main><nav>${t.map(k=>`<button class="${k===S.tab?'on':''}" onclick="S.tab='${k}';render()">${LB[k]}</button>`).join('')}</nav>`}
+seed();render();
+</script></body></html>
