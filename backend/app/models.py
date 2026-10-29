@@ -336,6 +336,101 @@ class PaymentIntent(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ExpenseStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class ExpenseCategory(Base):
+    __tablename__ = "expense_categories"
+
+    code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class Expense(Base):
+    __tablename__ = "expenses"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_expense_amount_positive"),
+        Index("uq_expenses_ref", "ref", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(20), nullable=False)
+    expense_date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
+    payment_date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(ForeignKey("expense_categories.code"), nullable=False)
+    description: Mapped[str] = mapped_column(String(500), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    method: Mapped[str] = mapped_column(ForeignKey("payment_methods.code"), nullable=False)
+    vendor: Mapped[str | None] = mapped_column(String(160))
+    memo_no: Mapped[str | None] = mapped_column(String(120))
+    has_physical_memo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    trx_id: Mapped[str | None] = mapped_column(String(120))
+    bank_ref: Mapped[str | None] = mapped_column(String(120))
+    sms_text: Mapped[str | None] = mapped_column(Text)
+    entered_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    status: Mapped[ExpenseStatus] = mapped_column(
+        Enum(ExpenseStatus, native_enum=False, length=12), nullable=False
+    )
+    approved_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class ExpenseEvent(Base):
+    __tablename__ = "expense_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    expense_id: Mapped[int] = mapped_column(ForeignKey("expenses.id"), nullable=False, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    actor_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    before: Mapped[dict | None] = mapped_column(JSON)
+    after: Mapped[dict | None] = mapped_column(JSON)
+    reason: Mapped[str | None] = mapped_column(Text)
+
+
+class ReferenceCounter(Base):
+    __tablename__ = "reference_counters"
+
+    name: Mapped[str] = mapped_column(String(32), primary_key=True)
+    day: Mapped[date] = mapped_column(Date(), primary_key=True)
+    value: Mapped[int] = mapped_column(nullable=False)
+
+
+class DailyClosingStatus(str, enum.Enum):
+    submitted = "submitted"
+    reviewed = "reviewed"
+
+
+class DailyClosing(Base):
+    __tablename__ = "daily_closings"
+    __table_args__ = (
+        UniqueConstraint("business_date", "version", name="uq_daily_closing_date_version"),
+        CheckConstraint("version > 0", name="ck_daily_closing_version_positive"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    business_date: Mapped[date] = mapped_column(Date(), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(nullable=False)
+    status: Mapped[DailyClosingStatus] = mapped_column(
+        Enum(DailyClosingStatus, native_enum=False, length=12), nullable=False
+    )
+    totals: Mapped[dict] = mapped_column(JSON, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    difference_notes: Mapped[str | None] = mapped_column(Text)
+    submitted_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_notes: Mapped[str | None] = mapped_column(Text)
+
+
 class BusinessSetting(Base):
     __tablename__ = "business_settings"
 

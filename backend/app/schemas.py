@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -153,3 +153,155 @@ class PaymentRejectIn(BaseModel):
 
 class OnlinePaymentIn(BaseModel):
     booking_id: int = Field(gt=0)
+
+
+class ExpenseCreateIn(BaseModel):
+    expense_date: date
+    payment_date: date
+    category: str = Field(min_length=2, max_length=32)
+    description: str = Field(min_length=2, max_length=500)
+    amount: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
+    method: str = Field(min_length=1, max_length=24)
+    vendor: str | None = Field(default=None, max_length=160)
+    memo_no: str | None = Field(default=None, max_length=120)
+    has_physical_memo: bool = False
+    trx_id: str | None = Field(default=None, max_length=120)
+    bank_ref: str | None = Field(default=None, max_length=120)
+    sms_text: str | None = Field(default=None, max_length=2000)
+    notes: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("category", "method")
+    @classmethod
+    def _normalize_codes(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("This field cannot be empty")
+        return normalized
+
+    @field_validator("description")
+    @classmethod
+    def _trim_description(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("description must be at least 2 characters")
+        return normalized
+
+    @field_validator("vendor", "memo_no", "trx_id", "bank_ref")
+    @classmethod
+    def _trim_optional_text(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else None
+        return normalized or None
+
+
+class ExpenseUpdateIn(BaseModel):
+    expense_date: date | None = None
+    payment_date: date | None = None
+    category: str | None = Field(default=None, min_length=2, max_length=32)
+    description: str | None = Field(default=None, min_length=2, max_length=500)
+    amount: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    method: str | None = Field(default=None, min_length=1, max_length=24)
+    vendor: str | None = Field(default=None, max_length=160)
+    memo_no: str | None = Field(default=None, max_length=120)
+    has_physical_memo: bool | None = None
+    trx_id: str | None = Field(default=None, max_length=120)
+    bank_ref: str | None = Field(default=None, max_length=120)
+    sms_text: str | None = Field(default=None, max_length=2000)
+    notes: str | None = Field(default=None, max_length=1000)
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("category", "method")
+    @classmethod
+    def _normalize_optional_codes(cls, value: str | None) -> str | None:
+        normalized = value.strip().lower() if value else value
+        if value is not None and not normalized:
+            raise ValueError("This field cannot be empty")
+        return normalized
+
+    @field_validator("description")
+    @classmethod
+    def _trim_update_description(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else value
+        if value is not None and len(normalized or "") < 2:
+            raise ValueError("description must be at least 2 characters")
+        return normalized
+
+    @field_validator("vendor", "memo_no", "trx_id", "bank_ref")
+    @classmethod
+    def _trim_optional_update_text(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else None
+        return normalized or None
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized
+
+    @model_validator(mode="after")
+    def _has_changes(self):
+        if not (self.model_fields_set - {"reason"}):
+            raise ValueError("Provide at least one expense field to correct")
+        required_fields = {
+            "expense_date", "payment_date", "category", "description", "amount",
+            "method", "has_physical_memo",
+        }
+        if any(
+            field in self.model_fields_set and getattr(self, field) is None
+            for field in required_fields
+        ):
+            raise ValueError("Required expense fields cannot be cleared")
+        return self
+
+
+class ExpenseRejectIn(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _trim_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 3:
+            raise ValueError("reason must be at least 3 characters")
+        return normalized
+
+
+class ExpenseCategoryCreateIn(BaseModel):
+    code: str = Field(pattern=r"^[a-z][a-z0-9_]{1,31}$")
+    label: str = Field(min_length=2, max_length=80)
+
+    @field_validator("label")
+    @classmethod
+    def _trim_label(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("label cannot be empty")
+        return normalized
+
+
+class ExpenseCategoryUpdateIn(BaseModel):
+    label: str | None = Field(default=None, min_length=2, max_length=80)
+    is_active: bool | None = None
+
+    @field_validator("label")
+    @classmethod
+    def _trim_label(cls, value: str | None) -> str | None:
+        normalized = value.strip() if value else None
+        return normalized or None
+
+    @model_validator(mode="after")
+    def _has_changes(self):
+        if not self.model_fields_set:
+            raise ValueError("Provide a label or active state")
+        return self
+
+
+class ClosingSubmitIn(BaseModel):
+    business_date: date
+    notes: str | None = Field(default=None, max_length=2000)
+    difference_notes: str | None = Field(default=None, max_length=2000)
+
+
+class ClosingReviewIn(BaseModel):
+    review_notes: str | None = Field(default=None, max_length=2000)

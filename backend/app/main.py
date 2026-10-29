@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .routers import (
-    auth, availability, bookings, facilities, payments, settings as app_settings, users,
+    auth, availability, bookings, expenses, facilities, payments,
+    settings as app_settings, users,
 )
 
 app = FastAPI(title="Turf & Pool Manager API", version="0.1.0")
@@ -19,6 +20,7 @@ api.include_router(bookings.router)
 api.include_router(bookings.my_router)
 api.include_router(payments.router)
 api.include_router(payments.booking_router)
+api.include_router(expenses.router)
 api.include_router(app_settings.router)
 
 

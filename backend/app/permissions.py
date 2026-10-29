@@ -21,9 +21,11 @@ PERMISSIONS: dict[str, set[Role]] = {
     "payment.verify": {O, A, AC},
     # Expenses and closing (Phase 5)
     "expense.enter": {O, A, S, AC},
+    "expense.configure": {O, A},
     "expense.approve": {O, AC},
     "closing.submit": {O, A, S},
     "closing.review": {O, A},
+    "closing.view": {O, A, S, AC},
     # Shareholders and reports (Phases 6-7)
     "shareholder.manage": {O},
     "report.view_full": {O, A, AC},
